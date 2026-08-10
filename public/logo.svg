@@ -1,0 +1,46 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#323236"/>
+      <stop offset="35%" stop-color="#1E1E22"/>
+      <stop offset="100%" stop-color="#0A0A0C"/>
+    </linearGradient>
+    <linearGradient id="silverGrad" x1="50" y1="30" x2="210" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="20%" stop-color="#F1F5F9"/>
+      <stop offset="55%" stop-color="#94A3B8"/>
+      <stop offset="85%" stop-color="#64748B"/>
+      <stop offset="100%" stop-color="#475569"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#52525B" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#18181B" stop-opacity="0.2"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Squircle container -->
+  <rect width="256" height="256" rx="56" fill="url(#bgGrad)" />
+  <rect x="2" y="2" width="252" height="252" rx="54" stroke="url(#borderGrad)" stroke-width="3" fill="none" />
+
+  <!-- Thick metallic play button with hollow center -->
+  <path fill-rule="evenodd" clip-rule="evenodd" d="
+    M 80 40
+    C 66 40 56 50 56 64
+    L 56 192
+    C 56 206 66 216 80 216
+    C 86 216 92 213 97 210
+    L 199 146
+    C 212 138 212 118 199 110
+    L 97 46
+    C 92 43 86 40 80 40
+    Z
+    M 94 82
+    C 94 77 99 74 103 76
+    L 165 115
+    C 170 118 170 125 165 128
+    L 103 167
+    C 99 169 94 166 94 161
+    L 94 82
+    Z"
+    fill="url(#silverGrad)" />
+</svg>

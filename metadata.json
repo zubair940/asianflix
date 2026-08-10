@@ -1,0 +1,6 @@
+{
+  "name": "AsianFlix",
+  "description": "AsianFlix - High-definition Asian Drama streaming platform with K-Drama, C-Drama, Pakistani Drama, Turkish Drama, J-Drama, Thai Drama, Custom Video Player with Subtitles, and Watch History.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

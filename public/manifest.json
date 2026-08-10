@@ -1,0 +1,21 @@
+{
+  "short_name": "KDramaBox",
+  "name": "KDramaBox - Premium K-Drama Streaming",
+  "icons": [
+    {
+      "src": "https://api.iconify.design/lucide:film.svg?color=%23f43f5e",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "https://api.iconify.design/lucide:film.svg?color=%23f43f5e",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#020617",
+  "theme_color": "#e11d48",
+  "display": "standalone",
+  "orientation": "portrait"
+}
