@@ -1,0 +1,30 @@
+[
+  {
+    "id": "admin_zubair",
+    "name": "Zubair (Admin)",
+    "email": "iamzubair708@gmail.com",
+    "passwordHash": "$2b$10$acFiaFuY.iRUWFew0F8V/.9j5Q2gIRy.lgP/K1n0sW5rnODEl4x9e",
+    "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+    "role": "admin",
+    "isBlocked": false,
+    "watchlist": [
+      "drama_1",
+      "drama_2"
+    ],
+    "createdAt": "2026-08-10T11:17:19.912Z"
+  },
+  {
+    "id": "user_1",
+    "name": "Min-ji Kim",
+    "email": "user@kdramabox.com",
+    "passwordHash": "$2b$10$ExTAOdXpNjWj/2Jhu4YOLuc.PlYDWSNSW/PaGHl6gtYVXBPSZ3tB6",
+    "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80",
+    "role": "user",
+    "isBlocked": false,
+    "watchlist": [
+      "drama_1",
+      "drama_3"
+    ],
+    "createdAt": "2026-08-10T11:17:20.059Z"
+  }
+]
