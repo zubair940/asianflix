@@ -26,10 +26,7 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // Static files for user uploads with video byte-range support
-  const uploadsDir = path.join(process.cwd(), 'uploads');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
+ 
 
   app.use('/uploads', express.static(uploadsDir, {
     acceptRanges: true,
