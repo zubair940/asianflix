@@ -1,12 +1,8 @@
-import fs from 'fs';
+﻿import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
-
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
 
 export interface User {
   id: string;
@@ -258,10 +254,11 @@ class Store {
         createdAt: new Date().toISOString()
       });
     }
-
-    this.saveUsers();
     // No default sample data auto-inserted.
   }
 }
 
 export const store = new Store();
+
+
+

@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
@@ -24,19 +24,6 @@ async function startServer() {
   app.use(cors());
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-  // Static files for user uploads with video byte-range support
- 
-
-  app.use('/uploads', express.static(uploadsDir, {
-    acceptRanges: true,
-    setHeaders: (res) => {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Range');
-      res.setHeader('Accept-Ranges', 'bytes');
-    }
-  }));
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {
@@ -68,8 +55,9 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🎬 K-Drama Box full-stack server running on http://0.0.0.0:${PORT}`);
+    console.log(`ðŸŽ¬ K-Drama Box full-stack server running on http://0.0.0.0:${PORT}`);
   });
 }
 
 startServer();
+
