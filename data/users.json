@@ -3,7 +3,7 @@
     "id": "admin_zubair",
     "name": "Zubair (Admin)",
     "email": "iamzubair708@gmail.com",
-    "passwordHash": "$2b$10$acFiaFuY.iRUWFew0F8V/.9j5Q2gIRy.lgP/K1n0sW5rnODEl4x9e",
+    "passwordHash": "$2b$10$gYMUs52iJgYrvYC3iNWyPeDLUxoJqXoxt9HPPFMdXE7qFcS6jgA6q",
     "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
     "role": "admin",
     "isBlocked": false,
