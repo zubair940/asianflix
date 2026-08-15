@@ -6,7 +6,12 @@ if (!uri) {
   throw new Error('MONGODB_URI environment variable is not set');
 }
 
-const client = new MongoClient(uri);
+const client = new MongoClient(uri, {
+  ssl: true,
+  maxPoolSize: 10,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+});
 let db: Db | null = null;
 
 export async function getDb(): Promise<Db> {
