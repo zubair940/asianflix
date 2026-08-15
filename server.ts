@@ -1,8 +1,8 @@
-﻿import express from 'express';
+﻿import 'dotenv/config';
+import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 
 import authRoutes from './backend/routes/authRoutes.js';
@@ -12,9 +12,6 @@ import userRoutes from './backend/routes/userRoutes.js';
 import adminRoutes from './backend/routes/adminRoutes.js';
 import uploadRoutes from './backend/routes/uploadRoutes.js';
 import featureRoutes from './backend/routes/featureRoutes.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();

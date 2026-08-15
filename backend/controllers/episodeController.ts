@@ -1,75 +1,96 @@
 import { Request, Response } from 'express';
-import { store, Episode } from '../config/store.js';
-import fs from 'fs';
-import path from 'path';
+import { getCollection } from '../config/mongodb/mongoStore.js';
+import { Episode } from '../config/store.js';
 
-// Helper to remove local uploaded files safely when replaced or deleted
-const removeLocalFile = (urlStr: string) => {
-  if (!urlStr) return;
-  try {
-    if (urlStr.includes('/uploads/')) {
-      const filename = urlStr.split('/uploads/').pop()?.split('?')[0];
-      if (filename) {
-        const filePath = path.join(process.cwd(), 'uploads', filename);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-          console.log(`🗑️ Deleted old uploaded file: ${filename}`);
-        }
-      }
-    }
-  } catch (err) {
-    console.error('Error deleting local file:', err);
-  }
-};
+const episodesCollection = () => getCollection<Episode>('episodes');
 
-export const getAllEpisodes = (req: Request, res: Response) => {
+export const getAllEpisodes = async (req: Request, res: Response) => {
   try {
     const { dramaId, search } = req.query;
-    let list = [...store.episodes];
+    const collection = await episodesCollection();
+
+    const filter: Record<string, any> = {};
 
     if (dramaId) {
-      list = list.filter(e => e.dramaId === String(dramaId));
+      filter.dramaId = String(dramaId);
     }
+
+    let episodes = await collection.find(filter).toArray();
 
     if (search) {
       const q = String(search).toLowerCase();
-      list = list.filter(e => e.title.toLowerCase().includes(q) || e.episodeNumber.toString() === q);
+
+      episodes = episodes.filter(
+        e =>
+          e.title.toLowerCase().includes(q) ||
+          e.episodeNumber.toString() === q
+      );
     }
 
-    // Sort by dramaId and episodeNumber
-    list.sort((a, b) => {
+    episodes.sort((a, b) => {
       if (a.dramaId === b.dramaId) {
         return a.episodeNumber - b.episodeNumber;
       }
+
       return a.dramaId.localeCompare(b.dramaId);
     });
 
-    return res.json(list);
+    return res.json(episodes);
   } catch (error: any) {
-    return res.status(500).json({ message: error.message || 'Error fetching episodes' });
+    return res.status(500).json({
+      message: error.message || 'Error fetching episodes'
+    });
   }
 };
 
-export const getEpisodesByDrama = (req: Request, res: Response) => {
-  const { dramaId } = req.params;
-  const episodes = store.episodes
-    .filter(e => e.dramaId === dramaId)
-    .sort((a, b) => a.episodeNumber - b.episodeNumber);
+export const getEpisodesByDrama = async (req: Request, res: Response) => {
+  try {
+    const { dramaId } = req.params;
+    const collection = await episodesCollection();
 
-  return res.json(episodes);
+    const episodes = await collection
+      .find({ dramaId })
+      .sort({ episodeNumber: 1 })
+      .toArray();
+
+    return res.json(episodes);
+  } catch (error: any) {
+    return res.status(500).json({
+      message: error.message || 'Error fetching episodes'
+    });
+  }
 };
 
-export const createEpisode = (req: Request, res: Response) => {
+export const createEpisode = async (req: Request, res: Response) => {
   try {
-    const { dramaId, episodeNumber, title, duration, videoUrl, subtitles, thumbnail } = req.body;
+    const {
+      dramaId,
+      episodeNumber,
+      title,
+      duration,
+      videoUrl,
+      subtitles,
+      thumbnail,
+      servers,
+      skipIntroStart,
+      skipIntroEnd,
+      skipOutroStart
+    } = req.body;
 
     if (!dramaId || !episodeNumber || !title || !videoUrl) {
-      return res.status(400).json({ message: 'Drama ID, episode number, title, and video URL are required' });
+      return res.status(400).json({
+        message:
+          'Drama ID, episode number, title, and video URL are required'
+      });
     }
 
-    const drama = store.dramas.find(d => d.id === dramaId);
+    const dramasCollection = await getCollection('dramas');
+    const drama = await dramasCollection.findOne({ id: dramaId });
+
     if (!drama) {
-      return res.status(404).json({ message: 'Associated Drama not found' });
+      return res.status(404).json({
+        message: 'Associated Drama not found'
+      });
     }
 
     const newEpisode: Episode = {
@@ -80,170 +101,262 @@ export const createEpisode = (req: Request, res: Response) => {
       duration: duration || '60 mins',
       videoUrl,
       subtitles: Array.isArray(subtitles) ? subtitles : [],
-      thumbnail: thumbnail || drama.poster,
-      createdAt: new Date().toISOString()
+      thumbnail: thumbnail || (drama as any).poster,
+      createdAt: new Date().toISOString(),
+      ...(Array.isArray(servers) ? { servers } : {}),
+      ...(skipIntroStart !== undefined
+        ? { skipIntroStart: Number(skipIntroStart) }
+        : {}),
+      ...(skipIntroEnd !== undefined
+        ? { skipIntroEnd: Number(skipIntroEnd) }
+        : {}),
+      ...(skipOutroStart !== undefined
+        ? { skipOutroStart: Number(skipOutroStart) }
+        : {})
     };
 
-    store.episodes.push(newEpisode);
-    store.saveEpisodes();
+    const collection = await episodesCollection();
+    await collection.insertOne(newEpisode);
 
     return res.status(201).json({
       message: 'Episode added successfully',
       episode: newEpisode
     });
   } catch (error: any) {
-    return res.status(500).json({ message: error.message || 'Error creating episode' });
+    return res.status(500).json({
+      message: error.message || 'Error creating episode'
+    });
   }
 };
 
-export const updateEpisode = (req: Request, res: Response) => {
+export const updateEpisode = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const index = store.episodes.findIndex(e => e.id === id);
+    const collection = await episodesCollection();
 
-    if (index === -1) {
-      return res.status(404).json({ message: 'Episode not found' });
+    const episode = await collection.findOne({ id });
+
+    if (!episode) {
+      return res.status(404).json({
+        message: 'Episode not found'
+      });
     }
 
-    const ep = store.episodes[index];
-    const { episodeNumber, title, duration, videoUrl, subtitles, thumbnail, dramaId } = req.body;
+    const {
+      dramaId,
+      episodeNumber,
+      title,
+      duration,
+      videoUrl,
+      subtitles,
+      thumbnail,
+      servers,
+      skipIntroStart,
+      skipIntroEnd,
+      skipOutroStart
+    } = req.body;
 
-    if (dramaId) ep.dramaId = dramaId;
-    if (episodeNumber !== undefined) ep.episodeNumber = Number(episodeNumber);
-    if (title) ep.title = title;
-    if (duration) ep.duration = duration;
-    
-    if (videoUrl && videoUrl !== ep.videoUrl) {
-      // Clean up old file if replaced via edit modal
-      removeLocalFile(ep.videoUrl);
-      ep.videoUrl = videoUrl;
+    const updates: Partial<Episode> = {};
+
+    if (dramaId) updates.dramaId = dramaId;
+
+    if (episodeNumber !== undefined) {
+      updates.episodeNumber = Number(episodeNumber);
     }
-    
-    if (subtitles) ep.subtitles = Array.isArray(subtitles) ? subtitles : ep.subtitles;
-    if (thumbnail) ep.thumbnail = thumbnail;
 
-    store.saveEpisodes();
+    if (title) updates.title = title;
+    if (duration) updates.duration = duration;
+    if (videoUrl) updates.videoUrl = videoUrl;
+    if (Array.isArray(subtitles)) updates.subtitles = subtitles;
+    if (thumbnail) updates.thumbnail = thumbnail;
+    if (Array.isArray(servers)) updates.servers = servers;
+
+    if (skipIntroStart !== undefined) {
+      updates.skipIntroStart = Number(skipIntroStart);
+    }
+
+    if (skipIntroEnd !== undefined) {
+      updates.skipIntroEnd = Number(skipIntroEnd);
+    }
+
+    if (skipOutroStart !== undefined) {
+      updates.skipOutroStart = Number(skipOutroStart);
+    }
+
+    await collection.updateOne(
+      { id },
+      { $set: updates }
+    );
+
+    const updatedEpisode = await collection.findOne({ id });
 
     return res.json({
       message: 'Episode updated successfully',
-      episode: ep
+      episode: updatedEpisode
     });
   } catch (error: any) {
-    return res.status(500).json({ message: error.message || 'Error updating episode' });
+    return res.status(500).json({
+      message: error.message || 'Error updating episode'
+    });
   }
 };
 
-export const replaceEpisodeVideo = (req: Request, res: Response) => {
+export const replaceEpisodeVideo = async (
+  req: Request,
+  res: Response
+) => {
   try {
     const { id } = req.params;
     const { videoUrl } = req.body;
 
     if (!videoUrl) {
-      return res.status(400).json({ message: 'New video URL is required' });
+      return res.status(400).json({
+        message: 'New video URL is required'
+      });
     }
 
-    const ep = store.episodes.find(e => e.id === id);
-    if (!ep) {
-      return res.status(404).json({ message: 'Episode not found' });
+    const collection = await episodesCollection();
+    const episode = await collection.findOne({ id });
+
+    if (!episode) {
+      return res.status(404).json({
+        message: 'Episode not found'
+      });
     }
 
-    // Clean up old video file from disk if local
-    if (ep.videoUrl && ep.videoUrl !== videoUrl) {
-      removeLocalFile(ep.videoUrl);
-    }
+    await collection.updateOne(
+      { id },
+      {
+        $set: {
+          videoUrl
+        }
+      }
+    );
 
-    ep.videoUrl = videoUrl;
-    store.saveEpisodes();
+    const updatedEpisode = await collection.findOne({ id });
 
     return res.json({
       message: 'Video replaced successfully',
-      episode: ep
+      episode: updatedEpisode
     });
   } catch (error: any) {
-    return res.status(500).json({ message: error.message || 'Error replacing episode video' });
+    return res.status(500).json({
+      message: error.message || 'Error replacing episode video'
+    });
   }
 };
 
-export const updateEpisodeSubtitle = (req: Request, res: Response) => {
+export const updateEpisodeSubtitle = async (
+  req: Request,
+  res: Response
+) => {
   try {
     const { id } = req.params;
     const { subtitles } = req.body;
 
-    const ep = store.episodes.find(e => e.id === id);
-    if (!ep) {
-      return res.status(404).json({ message: 'Episode not found' });
+    if (!Array.isArray(subtitles)) {
+      return res.status(400).json({
+        message: 'Subtitles must be an array'
+      });
     }
 
-    if (Array.isArray(subtitles)) {
-      ep.subtitles = subtitles;
-      store.saveEpisodes();
+    const collection = await episodesCollection();
+    const episode = await collection.findOne({ id });
+
+    if (!episode) {
+      return res.status(404).json({
+        message: 'Episode not found'
+      });
     }
+
+    await collection.updateOne(
+      { id },
+      {
+        $set: {
+          subtitles
+        }
+      }
+    );
+
+    const updatedEpisode = await collection.findOne({ id });
 
     return res.json({
       message: 'Subtitles updated successfully',
-      episode: ep
+      episode: updatedEpisode
     });
   } catch (error: any) {
-    return res.status(500).json({ message: error.message || 'Error updating subtitles' });
+    return res.status(500).json({
+      message: error.message || 'Error updating subtitles'
+    });
   }
 };
 
-export const deleteEpisode = (req: Request, res: Response) => {
+export const deleteEpisode = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const index = store.episodes.findIndex(e => e.id === id);
+    const collection = await episodesCollection();
 
-    if (index === -1) {
-      return res.status(404).json({ message: 'Episode not found' });
+    const episode = await collection.findOne({ id });
+
+    if (!episode) {
+      return res.status(404).json({
+        message: 'Episode not found'
+      });
     }
 
-    const ep = store.episodes[index];
+    await collection.deleteOne({ id });
 
-    // Clean up video file & subtitle files if local
-    if (ep.videoUrl) {
-      removeLocalFile(ep.videoUrl);
-    }
-    if (ep.subtitles && Array.isArray(ep.subtitles)) {
-      ep.subtitles.forEach(s => removeLocalFile(s.url));
-    }
-
-    store.episodes.splice(index, 1);
-    store.saveEpisodes();
-
-    return res.json({ message: 'Episode deleted successfully' });
+    return res.json({
+      message: 'Episode deleted successfully'
+    });
   } catch (error: any) {
-    return res.status(500).json({ message: error.message || 'Error deleting episode' });
+    return res.status(500).json({
+      message: error.message || 'Error deleting episode'
+    });
   }
 };
 
-export const reorderEpisodes = (req: Request, res: Response) => {
+export const reorderEpisodes = async (
+  req: Request,
+  res: Response
+) => {
   try {
     const { dramaId, episodeIds } = req.body;
 
     if (!dramaId || !Array.isArray(episodeIds)) {
-      return res.status(400).json({ message: 'dramaId and episodeIds array are required' });
+      return res.status(400).json({
+        message: 'dramaId and episodeIds array are required'
+      });
     }
 
-    // Reorder and update episode numbers sequentially starting at 1
-    episodeIds.forEach((epId: string, index: number) => {
-      const ep = store.episodes.find(e => e.id === epId && e.dramaId === dramaId);
-      if (ep) {
-        ep.episodeNumber = index + 1;
-      }
-    });
+    const collection = await episodesCollection();
 
-    store.saveEpisodes();
+    for (let index = 0; index < episodeIds.length; index++) {
+      await collection.updateOne(
+        {
+          id: episodeIds[index],
+          dramaId
+        },
+        {
+          $set: {
+            episodeNumber: index + 1
+          }
+        }
+      );
+    }
 
-    const updatedEpisodes = store.episodes
-      .filter(e => e.dramaId === dramaId)
-      .sort((a, b) => a.episodeNumber - b.episodeNumber);
+    const updatedEpisodes = await collection
+      .find({ dramaId })
+      .sort({ episodeNumber: 1 })
+      .toArray();
 
     return res.json({
       message: 'Episodes reordered successfully',
       episodes: updatedEpisodes
     });
   } catch (error: any) {
-    return res.status(500).json({ message: error.message || 'Error reordering episodes' });
+    return res.status(500).json({
+      message: error.message || 'Error reordering episodes'
+    });
   }
 };
-

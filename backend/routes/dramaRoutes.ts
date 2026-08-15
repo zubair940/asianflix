@@ -15,11 +15,11 @@ import { adminMiddleware } from '../middleware/admin.js';
 const router = Router();
 
 // Enforce authentication for all drama data access
-router.get('/', authMiddleware, getAllDramas);
-router.get('/trending', authMiddleware, getTrendingDramas);
-router.get('/latest', authMiddleware, getLatestDramas);
-router.get('/genre/:genre', authMiddleware, getDramasByGenre);
-router.get('/:id', authMiddleware, getDramaById);
+router.get('/', getAllDramas);
+router.get('/trending', getTrendingDramas);
+router.get('/latest', getLatestDramas);
+router.get('/genre/:genre', getDramasByGenre);
+router.get('/:id', getDramaById);
 
 // Admin protected routes
 router.post('/', authMiddleware, adminMiddleware, createDrama);

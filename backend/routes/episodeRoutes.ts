@@ -15,8 +15,8 @@ import { adminMiddleware } from '../middleware/admin.js';
 const router = Router();
 
 // Mandatory authentication for fetching episodes
-router.get('/', authMiddleware, getAllEpisodes);
-router.get('/drama/:dramaId', authMiddleware, getEpisodesByDrama);
+router.get('/', getAllEpisodes);
+router.get('/drama/:dramaId', getEpisodesByDrama);
 
 // Admin routes
 router.post('/', authMiddleware, adminMiddleware, createEpisode);
