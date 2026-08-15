@@ -16,9 +16,6 @@
   "functions": {
     "api/[...path].ts": {
       "maxDuration": 30
-    },
-    "api/admin/[...path].ts": {
-      "maxDuration": 30
     }
   },
   "headers": [
