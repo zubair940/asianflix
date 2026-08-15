@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { dramaService } from '../services/dramaService.js';
-import { userService } from '../services/userService.js';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext.js';
 import { Drama, WatchHistoryItem } from '../types.js';
 import { HeroSection } from '../components/homepage/HeroSection.js';
@@ -8,92 +6,90 @@ import { DramaRow } from '../components/homepage/DramaRow.tsx';
 import { LoadingSpinner } from '../components/common/LoadingSpinner.js';
 import { EmptyState } from '../components/common/EmptyState.js';
 import { GENRES } from '../utils/constants.js';
-import { Flame, Sparkles, Clock, Compass, ThumbsUp, Heart } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Flame, Sparkles, Clock, Compass, ThumbsUp, Heart, Film } from 'lucide-react';
+import { useDramaList, useTrendingDramas, useLatestDramas } from '../hooks/index.js';
+import { userService } from '../services/userService.js';
 
 export const Home: React.FC = () => {
   const { user } = useAuth();
 
-  const [trending, setTrending] = useState<Drama[]>([]);
-  const [latest, setLatest] = useState<Drama[]>([]);
-  const [recommended, setRecommended] = useState<Drama[]>([]);
-  const [historyItems, setHistoryItems] = useState<WatchHistoryItem[]>([]);
   const [selectedGenre, setSelectedGenre] = useState<string>('All');
   const [genreDramas, setGenreDramas] = useState<Drama[]>([]);
+  const [historyItems, setHistoryItems] = useState<WatchHistoryItem[]>([]);
 
-  const [loading, setLoading] = useState(true);
+  // Optimized data fetching with caching
+  const { data: trendingData, loading: trendingLoading } = useTrendingDramas();
+  const { data: latestData, loading: latestLoading } = useLatestDramas();
+  const { data: allData, loading: allLoading } = useDramaList();
 
+  const loading = trendingLoading || latestLoading || allLoading;
+
+  // Memoized derived data
+  const trending = useMemo(() => trendingData || [], [trendingData]);
+  const latest = useMemo(() => latestData || [], [latestData]);
+  const recommended = useMemo(
+    () => (allData?.dramas || []).filter((d) => d.averageRating >= 4.8),
+    [allData]
+  );
+
+  const heroDrama = useMemo(() => trending[0] || latest[0], [trending, latest]);
+
+  const hasNoDramas = useMemo(
+    () => trending.length === 0 && latest.length === 0 && recommended.length === 0,
+    [trending, latest, recommended]
+  );
+
+  // Load user watch history
   useEffect(() => {
-    loadHomeContent();
+    if (user) {
+      userService.getWatchHistory().then(setHistoryItems).catch(console.error);
+    } else {
+      setHistoryItems([]);
+    }
   }, [user]);
 
-  const loadHomeContent = async () => {
-    setLoading(true);
-    try {
-      const [tData, lData, allData] = await Promise.all([
-        dramaService.getTrending(),
-        dramaService.getLatest(),
-        dramaService.getAllDramas()
-      ]);
-
-      setTrending(tData);
-      setLatest(lData);
-      setRecommended(allData.dramas.filter((d) => d.averageRating >= 4.8));
-
-      if (user) {
-        const hist = await userService.getWatchHistory();
-        setHistoryItems(hist);
-      }
-    } catch (err) {
-      console.error('Home content load error', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Load genre-specific dramas
   useEffect(() => {
     if (selectedGenre !== 'All') {
-      dramaService.getByGenre(selectedGenre).then((res) => setGenreDramas(res)).catch(() => {});
+      fetch(`/api/dramas/genre/${encodeURIComponent(selectedGenre)}`)
+        .then((res) => res.json())
+        .then(setGenreDramas)
+        .catch(() => setGenreDramas([]));
+    } else {
+      setGenreDramas([]);
     }
   }, [selectedGenre]);
 
+  // Memoized continue watching dramas
+  const continueWatchingDramas = useMemo((): Drama[] => {
+    const dramaMap = new Map<string, Drama>();
+    historyItems.forEach((h) => {
+      if (h.drama && !dramaMap.has(h.drama.id)) {
+        dramaMap.set(h.drama.id, h.drama);
+      }
+    });
+    return Array.from(dramaMap.values());
+  }, [historyItems]);
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <LoadingSpinner label="Loading Asian Dramas..." />
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <LoadingSpinner label="Loading Asian Dramas..." size="lg" />
       </div>
     );
   }
 
-  // Check if platform has zero dramas
-  const hasNoDramas = trending.length === 0 && latest.length === 0 && recommended.length === 0;
-
-  // Hero Drama (top 1 trending)
-  const heroDrama = trending[0] || latest[0];
-
-  // Map watch history to dramas for Continue Watching
-  const historyMap: Record<string, WatchHistoryItem> = {};
-  const continueWatchingDramas: Drama[] = [];
-
-  historyItems.forEach((h) => {
-    if (h.drama) {
-      historyMap[h.drama.id] = h;
-      if (!continueWatchingDramas.some((d) => d.id === h.drama!.id)) {
-        continueWatchingDramas.push(h.drama);
-      }
-    }
-  });
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-20">
+    <div className="min-h-screen bg-gray-950 text-gray-100 pb-20">
       {/* Autoplay Hero Banner */}
       {heroDrama && <HeroSection drama={heroDrama} />}
 
       {/* Quick Category Genre Pills Filter */}
-      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${heroDrama ? '-mt-6' : 'pt-24'} relative z-20`}>
-        <div className="p-3 rounded-2xl bg-slate-900/95 border border-white/10 backdrop-blur-md shadow-2xl flex items-center gap-2 overflow-x-auto scrollbar-none">
-          <span className="text-xs font-bold text-[#00C2FF] px-3 flex items-center gap-1.5 shrink-0">
-            <Compass className="w-4 h-4 text-[#00C2FF]" /> Genre Filter:
+      <div className={`container ${heroDrama ? '-mt-8' : 'pt-28'} relative z-20`}>
+        <div className="p-3 rounded-2xl glass-strong shadow-[0_12px_40px_-8px_rgba(0,0,0,0.6)] flex items-center gap-2 overflow-x-auto scrollbar-none">
+          <span className="text-xs font-bold text-cyan-400 px-3 flex items-center gap-1.5 shrink-0">
+            <Compass className="w-4 h-4" aria-hidden="true" />
+            Genre Filter:
           </span>
           {GENRES.map((g) => {
             const active = selectedGenre === g;
@@ -101,10 +97,10 @@ export const Home: React.FC = () => {
               <button
                 key={g}
                 onClick={() => setSelectedGenre(g)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
                   active
-                    ? 'bg-gradient-to-r from-[#00C2FF] to-[#0047FF] text-black shadow-lg shadow-cyan-500/30 font-extrabold'
-                    : 'bg-[#050505] text-slate-300 hover:bg-slate-800 hover:text-white border border-white/10'
+                    ? 'bg-gradient-to-r from-cyan-400 to-blue-600 text-gray-950 shadow-lg shadow-cyan-500/30 font-extrabold'
+                    : 'bg-gray-950/80 text-gray-300 hover:bg-gray-800 hover:text-white border border-white/10'
                 }`}
               >
                 {g}
@@ -114,9 +110,9 @@ export const Home: React.FC = () => {
         </div>
       </div>
 
-      {/* Primary Empty State if Database is completely empty */}
+      {/* Primary Empty State */}
       {hasNoDramas && selectedGenre === 'All' && (
-        <div className="max-w-4xl mx-auto px-4 pt-12">
+        <div className="container pt-16">
           <EmptyState
             title="No Dramas Uploaded Yet"
             description="Our database is currently clean and empty. As soon as the administrator uploads dramas and episodes, they will appear right here!"
@@ -125,7 +121,7 @@ export const Home: React.FC = () => {
         </div>
       )}
 
-      {/* Filtered Genre Row if user selected specific genre */}
+      {/* Filtered Genre Row */}
       {selectedGenre !== 'All' && (
         genreDramas.length > 0 ? (
           <DramaRow
@@ -135,7 +131,7 @@ export const Home: React.FC = () => {
             dramas={genreDramas}
           />
         ) : (
-          <div className="max-w-3xl mx-auto px-4 pt-8">
+          <div className="container pt-12">
             <EmptyState
               icon="search"
               title={`No ${selectedGenre} Dramas Found`}
@@ -148,14 +144,14 @@ export const Home: React.FC = () => {
         )
       )}
 
-      {/* Continue Watching Row (if user logged in & has history) */}
+      {/* Continue Watching Row */}
       {continueWatchingDramas.length > 0 && (
         <DramaRow
           title="Continue Watching"
           subtitle="Resume playback right where you left off"
           icon={<Clock className="w-5 h-5 text-rose-400" />}
           dramas={continueWatchingDramas}
-          historyMap={historyMap}
+          historyMap={historyItems.reduce((acc, h) => ({ ...acc, [h.drama!.id]: h }), {} as Record<string, WatchHistoryItem>)}
         />
       )}
 
@@ -174,7 +170,7 @@ export const Home: React.FC = () => {
         <DramaRow
           title="Latest Uploads"
           subtitle="Newly added episodes & dramas"
-          icon={<Sparkles className="w-5 h-5 text-[#00C2FF]" />}
+          icon={<Sparkles className="w-5 h-5 text-cyan-400" />}
           dramas={latest}
         />
       )}
@@ -188,6 +184,34 @@ export const Home: React.FC = () => {
           dramas={recommended}
         />
       )}
+
+      {/* CTA Section */}
+      {hasNoDramas && (
+        <div className="container pt-12 pb-8">
+          <div className="glass-strong rounded-3xl p-8 sm:p-12 text-center">
+            <Film className="w-16 h-16 text-cyan-400/50 mx-auto mb-6" aria-hidden="true" />
+            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+              Welcome to AsianFlix
+            </h2>
+            <p className="text-gray-400 text-lg mb-8 max-w-2xl mx-auto">
+              The premier destination for streaming Asian dramas in HD. Discover thousands of titles
+              across Korean, Chinese, Japanese, Pakistani, Turkish, and Thai dramas.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <a href="/search" className="btn-primary">
+                <Sparkles className="w-5 h-5" aria-hidden="true" />
+                Explore Library
+              </a>
+              <a href="/login" className="btn-secondary">
+                <Film className="w-5 h-5" aria-hidden="true" />
+                Sign In to Watch
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default Home;

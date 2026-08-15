@@ -1,91 +1,126 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Film, Heart, Sparkles, Globe, Shield, Tv, Download } from 'lucide-react';
+import { Film, Heart, Sparkles, Globe, Shield, Tv, Download, Twitter, Github, MessageSquare, Youtube } from 'lucide-react';
 
 export const Footer: React.FC = () => {
+  const currentYear = new Date().getFullYear();
+
   return (
-    <footer className="bg-[#050505] border-t border-white/10 text-slate-400 py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-        {/* Col 1 */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2.5">
-            <img
-              src="/logo.svg"
-              alt="AsianFlix Logo"
-              className="w-8 h-8 rounded-lg object-contain border border-slate-700/50 shadow-sm"
-            />
-            <span className="text-lg font-bold text-white">
-              Asian<span className="text-[#00C2FF]">Flix</span>
-            </span>
-          </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            The ultimate high-definition Asian Drama streaming hub. Watch your favorite K-Dramas, C-Dramas, Pakistani Dramas, Turkish Dramas, J-Dramas & more with multi-language subtitles across devices.
-          </p>
-          <div className="flex items-center gap-3 text-xs text-slate-500">
-            <span className="flex items-center gap-1"><Tv className="w-3.5 h-3.5 text-[#00C2FF]" /> Full HD 1080p</span>
-            <span className="flex items-center gap-1"><Globe className="w-3.5 h-3.5 text-cyan-400" /> Multi-Subs</span>
-          </div>
-        </div>
-
-        {/* Col 2 */}
-        <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-200 mb-3">
-            Quick Navigation
-          </h4>
-          <ul className="space-y-2 text-xs">
-            <li>
-              <Link to="/" className="hover:text-[#00C2FF] transition-colors">Home & Trending</Link>
-            </li>
-            <li>
-              <Link to="/search" className="hover:text-[#00C2FF] transition-colors">Genre & Category Discovery</Link>
-            </li>
-            <li>
-              <Link to="/profile" className="hover:text-[#00C2FF] transition-colors">My Watchlist</Link>
-            </li>
-            <li>
-              <Link to="/search?sort=rating" className="hover:text-[#00C2FF] transition-colors">Top Rated Dramas</Link>
-            </li>
-          </ul>
-        </div>
-
-        {/* Col 3 */}
-        <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-200 mb-3">
-            Drama Categories
-          </h4>
-          <ul className="space-y-2 text-xs">
-            <li><Link to="/search?category=K-Drama" className="hover:text-[#00C2FF] transition-colors">K-Dramas (Korean)</Link></li>
-            <li><Link to="/search?category=C-Drama" className="hover:text-[#00C2FF] transition-colors">C-Dramas (Chinese)</Link></li>
-            <li><Link to="/search?category=Pakistani Drama" className="hover:text-[#00C2FF] transition-colors">Pakistani Dramas</Link></li>
-            <li><Link to="/search?category=Turkish Drama" className="hover:text-[#00C2FF] transition-colors">Turkish Dramas</Link></li>
-          </ul>
-        </div>
-
-        {/* Col 4 */}
-        <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-200 mb-3">
-            App & Security
-          </h4>
-          <p className="text-xs text-slate-400 mb-3">
-            Install AsianFlix to your home screen for an app-like streaming experience.
-          </p>
-          <div className="p-3 rounded-xl bg-slate-900 border border-white/10 text-xs space-y-2">
-            <div className="flex items-center gap-2 text-emerald-400 font-medium">
-              <Shield className="w-4 h-4" /> Secure JWT Auth & Privacy
+    <footer className="bg-gray-950 border-t border-white/10 text-gray-400" role="contentinfo">
+      <div className="container py-16 lg:py-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 lg:gap-12 mb-16">
+          {/* Brand Column */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                <img
+                  src="/logo.svg"
+                  alt=""
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <span className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white via-gray-100 to-cyan-400 bg-clip-text text-transparent">
+                Asian<span className="text-cyan-400">Flix</span>
+              </span>
             </div>
-            <div className="flex items-center gap-2 text-[#00C2FF] font-medium">
-              <Sparkles className="w-4 h-4" /> PWA Offline Ready
+            <p className="text-sm text-gray-400 leading-relaxed max-w-xs">
+              The ultimate high-definition Asian Drama streaming hub. Watch your favorite K-Dramas, C-Dramas, Pakistani Dramas, Turkish Dramas, J-Dramas & more with multi-language subtitles across devices.
+            </p>
+            <div className="flex flex-wrap gap-3 text-sm text-gray-500">
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-900 border border-white/10">
+                <Tv className="w-4 h-4 text-cyan-400" aria-hidden="true" />
+                Full HD 1080p
+              </span>
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-900 border border-white/10">
+                <Globe className="w-4 h-4 text-cyan-400" aria-hidden="true" />
+                Multi-Subs
+              </span>
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-900 border border-white/10">
+                <Sparkles className="w-4 h-4 text-cyan-400" aria-hidden="true" />
+                PWA Ready
+              </span>
+            </div>
+            <div className="flex items-center gap-4 pt-2">
+              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl bg-gray-900 border border-white/10 text-gray-400 hover:text-cyan-400 hover:border-cyan-400/50 transition-all" aria-label="Follow us on Twitter">
+                <Twitter className="w-5 h-5" />
+              </a>
+              <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl bg-gray-900 border border-white/10 text-gray-400 hover:text-cyan-400 hover:border-cyan-400/50 transition-all" aria-label="GitHub Repository">
+                <Github className="w-5 h-5" />
+              </a>
+<a href="https://discord.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl bg-gray-900 border border-white/10 text-gray-400 hover:text-cyan-400 hover:border-cyan-400/50 transition-all" aria-label="Join Discord">
+              <MessageSquare className="w-5 h-5" />
+            </a>
+              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl bg-gray-900 border border-white/10 text-gray-400 hover:text-cyan-400 hover:border-cyan-400/50 transition-all" aria-label="YouTube Channel">
+                <Youtube className="w-5 h-5" />
+              </a>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-        <div>
-          © {new Date().getFullYear()} AsianFlix. Designed for drama enthusiasts worldwide.
+          {/* Navigation */}
+          <nav className="space-y-4" aria-label="Quick navigation">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-200 mb-4">Quick Navigation</h4>
+            <ul className="space-y-3 text-sm">
+              <li><Link to="/" className="text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-2">Home & Trending</Link></li>
+              <li><Link to="/search" className="text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-2">Genre & Category Discovery</Link></li>
+              <li><Link to="/search?sort=rating" className="text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-2">Top Rated Dramas</Link></li>
+              <li><Link to="/search?sort=views" className="text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-2">Most Watched</Link></li>
+              <li><Link to="/search?sort=latest" className="text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-2">Latest Uploads</Link></li>
+            </ul>
+          </nav>
+
+          {/* Categories */}
+          <nav className="space-y-4" aria-label="Drama categories">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-200 mb-4">Drama Categories</h4>
+            <ul className="space-y-3 text-sm">
+              <li><Link to="/search?category=K-Drama" className="text-gray-400 hover:text-cyan-400 transition-colors">K-Dramas (Korean)</Link></li>
+              <li><Link to="/search?category=C-Drama" className="text-gray-400 hover:text-cyan-400 transition-colors">C-Dramas (Chinese)</Link></li>
+              <li><Link to="/search?category=J-Drama" className="text-gray-400 hover:text-cyan-400 transition-colors">J-Dramas (Japanese)</Link></li>
+              <li><Link to="/search?category=Pakistani Drama" className="text-gray-400 hover:text-cyan-400 transition-colors">Pakistani Dramas</Link></li>
+              <li><Link to="/search?category=Turkish Drama" className="text-gray-400 hover:text-cyan-400 transition-colors">Turkish Dramas</Link></li>
+              <li><Link to="/search?category=Thai Drama" className="text-gray-400 hover:text-cyan-400 transition-colors">Thai Dramas (Lakorn)</Link></li>
+            </ul>
+          </nav>
+
+          {/* App & Legal */}
+          <div className="space-y-4" aria-label="App & Security">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-200 mb-4">App & Security</h4>
+            <p className="text-sm text-gray-400">
+              Install AsianFlix to your home screen for an app-like streaming experience with offline support.
+            </p>
+            <div className="p-4 rounded-2xl bg-gray-900/80 border border-white/10 backdrop-blur-sm text-sm space-y-3">
+              <div className="flex items-center gap-2.5 text-emerald-400 font-medium">
+                <Shield className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+                Secure JWT Auth & Privacy
+              </div>
+              <div className="flex items-center gap-2.5 text-cyan-400 font-medium">
+                <Sparkles className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+                PWA Offline Ready
+              </div>
+              <div className="flex items-center gap-2.5 text-amber-400 font-medium">
+                <Download className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+                Installable on All Devices
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          Made with <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" /> for Asian Drama lovers.
+
+        {/* Bottom Bar */}
+        <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="text-sm text-gray-500">
+            © {currentYear} AsianFlix. Designed for drama enthusiasts worldwide.
+          </div>
+          <div className="flex items-center gap-4 text-sm text-gray-500">
+            <Link to="/privacy" className="hover:text-cyan-400 transition-colors">Privacy Policy</Link>
+            <span aria-hidden="true">•</span>
+            <Link to="/terms" className="hover:text-cyan-400 transition-colors">Terms of Service</Link>
+            <span aria-hidden="true">•</span>
+            <Link to="/cookies" className="hover:text-cyan-400 transition-colors">Cookie Policy</Link>
+          </div>
+          <div className="flex items-center gap-1.5 text-sm">
+            Made with
+            <Heart className="w-4 h-4 text-rose-500 fill-rose-500" aria-hidden="true" />
+            for Asian Drama lovers.
+          </div>
         </div>
       </div>
     </footer>

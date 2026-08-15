@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext.js';
 import { ThemeProvider } from './context/ThemeContext.js';
@@ -10,15 +10,26 @@ import { Footer } from './components/common/Footer.js';
 import { ToastNotifications } from './components/common/ToastNotifications.js';
 import { ProtectedRoute } from './components/common/ProtectedRoute.js';
 import { AdminRoute } from './components/admin/AdminRoute.js';
+import { LoadingSpinner } from './components/common/LoadingSpinner.js';
 
-import { Home } from './pages/Home.js';
-import { DramaPage } from './pages/DramaPage.js';
-import { WatchPage } from './pages/WatchPage.js';
-import { SearchPage } from './pages/SearchPage.js';
-import { LoginPage } from './pages/LoginPage.js';
-import { RegisterPage } from './pages/RegisterPage.js';
-import { ProfilePage } from './pages/ProfilePage.js';
-import { AdminPage } from './pages/AdminPage.js';
+const Home = lazy(() => import('./pages/Home').then(m => ({ default: m.Home })));
+const DramaPage = lazy(() => import('./pages/DramaPage').then(m => ({ default: m.DramaPage })));
+const WatchPage = lazy(() => import('./pages/WatchPage').then(m => ({ default: m.WatchPage })));
+const SearchPage = lazy(() => import('./pages/SearchPage').then(m => ({ default: m.SearchPage })));
+const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const RegisterPage = lazy(() => import('./pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
+
+const PageSkeleton = () => (
+  <div className="min-h-[60vh] flex items-center justify-center">
+    <LoadingSpinner label="Loading..." size="lg" />
+  </div>
+);
+
+const LazyWrapper = ({ children }: { children: React.ReactNode }) => (
+  <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
+);
 
 export function App() {
   return (
@@ -27,20 +38,20 @@ export function App() {
         <AuthProvider>
           <ThemeProvider>
             <PlayerProvider>
-              <div className="min-h-screen bg-[#050505] text-slate-100 flex flex-col selection:bg-[#00c2ff] selection:text-black font-sans">
+              <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col font-sans selection:bg-cyan-400 selection:text-gray-950">
                 <Navbar />
                 <main className="flex-1">
                   <Routes>
-                    {/* Public Routes */}
+                    {/* Public Routes - No Suspense needed for instant load */}
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
 
-                    {/* Mandatory Login Protected User Routes */}
+                    {/* Protected User Routes */}
                     <Route
                       path="/"
                       element={
                         <ProtectedRoute>
-                          <Home />
+                          <LazyWrapper><Home /></LazyWrapper>
                         </ProtectedRoute>
                       }
                     />
@@ -48,7 +59,7 @@ export function App() {
                       path="/drama/:id"
                       element={
                         <ProtectedRoute>
-                          <DramaPage />
+                          <LazyWrapper><DramaPage /></LazyWrapper>
                         </ProtectedRoute>
                       }
                     />
@@ -56,7 +67,7 @@ export function App() {
                       path="/watch/:dramaId/:episodeId"
                       element={
                         <ProtectedRoute>
-                          <WatchPage />
+                          <LazyWrapper><WatchPage /></LazyWrapper>
                         </ProtectedRoute>
                       }
                     />
@@ -64,7 +75,7 @@ export function App() {
                       path="/search"
                       element={
                         <ProtectedRoute>
-                          <SearchPage />
+                          <LazyWrapper><SearchPage /></LazyWrapper>
                         </ProtectedRoute>
                       }
                     />
@@ -72,7 +83,7 @@ export function App() {
                       path="/watchlist"
                       element={
                         <ProtectedRoute>
-                          <ProfilePage defaultTab="watchlist" />
+                          <LazyWrapper><ProfilePage defaultTab="watchlist" /></LazyWrapper>
                         </ProtectedRoute>
                       }
                     />
@@ -80,7 +91,7 @@ export function App() {
                       path="/history"
                       element={
                         <ProtectedRoute>
-                          <ProfilePage defaultTab="history" />
+                          <LazyWrapper><ProfilePage defaultTab="history" /></LazyWrapper>
                         </ProtectedRoute>
                       }
                     />
@@ -88,7 +99,7 @@ export function App() {
                       path="/profile"
                       element={
                         <ProtectedRoute>
-                          <ProfilePage />
+                          <LazyWrapper><ProfilePage /></LazyWrapper>
                         </ProtectedRoute>
                       }
                     />
@@ -98,7 +109,7 @@ export function App() {
                       path="/admin"
                       element={
                         <AdminRoute>
-                          <AdminPage />
+                          <LazyWrapper><AdminPage /></LazyWrapper>
                         </AdminRoute>
                       }
                     />
@@ -106,12 +117,12 @@ export function App() {
                       path="/admin/episodes"
                       element={
                         <AdminRoute>
-                          <AdminPage initialTab="episodes" />
+                          <LazyWrapper><AdminPage initialTab="episodes" /></LazyWrapper>
                         </AdminRoute>
                       }
                     />
 
-                    {/* Fallback redirect */}
+                    {/* Fallback */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </main>
