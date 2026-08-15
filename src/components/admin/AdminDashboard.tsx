@@ -13,6 +13,9 @@ import { ManageUsers } from './ManageUsers.js';
 import { EpisodeManagement } from './EpisodeManagement.js';
 import { DanmakuModerationTab } from './DanmakuModerationTab.js';
 import { SystemAnalyticsDashboard } from './SystemAnalyticsDashboard.js';
+import { ScheduledPublishing } from './ScheduledPublishing.js';
+import { AdminActivityLog } from './AdminActivityLog.js';
+import { EpisodeTemplates } from './EpisodeTemplates.js';
 import {
   Film,
   Users,
@@ -27,13 +30,19 @@ import {
   MessageSquare,
   Video,
   ListOrdered,
-  Activity
+  Activity,
+  Clock,
+  FileText,
+  History,
+  Sparkles,
+  Zap,
+  LayoutDashboard
 } from 'lucide-react';
 
 import { useLocation } from 'react-router-dom';
 
 interface AdminDashboardProps {
-  initialTab?: 'stats' | 'dramas' | 'episodes' | 'users' | 'reorder' | 'reviews' | 'danmaku' | 'cluster';
+  initialTab?: 'stats' | 'dramas' | 'episodes' | 'users' | 'reorder' | 'reviews' | 'danmaku' | 'cluster' | 'schedule' | 'activity' | 'templates';
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) => {
@@ -52,7 +61,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
   const [dramas, setDramas] = useState<Drama[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<'stats' | 'dramas' | 'episodes' | 'users' | 'reorder' | 'reviews' | 'danmaku' | 'cluster'>(getStartingTab);
+  const [activeTab, setActiveTab] = useState<'stats' | 'dramas' | 'episodes' | 'users' | 'reorder' | 'reviews' | 'danmaku' | 'cluster' | 'schedule' | 'activity' | 'templates'>(getStartingTab);
 
   const [showAddDrama, setShowAddDrama] = useState(false);
   const [showAddEpisode, setShowAddEpisode] = useState(false);
@@ -242,7 +251,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <BarChart3 className="w-4 h-4" /> Overview Analytics
+            <LayoutDashboard className="w-4 h-4" /> Overview
+          </button>
+
+          <button
+            onClick={() => setActiveTab('schedule')}
+            className={`pb-3 px-2 text-sm font-bold flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+              activeTab === 'schedule'
+                ? 'border-amber-500 text-amber-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Zap className="w-4 h-4" /> Scheduled Pub
+          </button>
+
+          <button
+            onClick={() => setActiveTab('templates')}
+            className={`pb-3 px-2 text-sm font-bold flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+              activeTab === 'templates'
+                ? 'border-purple-500 text-purple-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" /> Templates
+          </button>
+
+          <button
+            onClick={() => setActiveTab('activity')}
+            className={`pb-3 px-2 text-sm font-bold flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+              activeTab === 'activity'
+                ? 'border-purple-500 text-purple-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <History className="w-4 h-4" /> Activity Log
           </button>
 
           <button
@@ -275,7 +317,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Film className="w-4 h-4" /> Manage Dramas ({dramas.length})
+            <Film className="w-4 h-4" /> Dramas ({dramas.length})
           </button>
 
           <button
@@ -286,7 +328,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Video className="w-4 h-4" /> Manage Episodes ({stats?.totalEpisodes || 0})
+            <Video className="w-4 h-4" /> Episodes ({stats?.totalEpisodes || 0})
           </button>
 
           <button
@@ -300,7 +342,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <ListOrdered className="w-4 h-4 text-[#00C2FF]" /> Reorder Episodes
+            <ListOrdered className="w-4 h-4 text-[#00C2FF]" /> Reorder
           </button>
 
           <button
@@ -311,7 +353,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Users className="w-4 h-4" /> Manage Users
+            <Users className="w-4 h-4" /> Users
           </button>
 
           <button
@@ -322,7 +364,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <MessageSquare className="w-4 h-4" /> Reviews Moderation
+            <MessageSquare className="w-4 h-4" /> Reviews
           </button>
         </div>
 
@@ -377,7 +419,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
         {/* Tab Content 4: System Cluster Analytics */}
         {activeTab === 'cluster' && stats && <SystemAnalyticsDashboard stats={stats} />}
 
-        {/* Tab Content 5: Dramas Management List */}
+        {/* Tab Content 5: Scheduled Publishing */}
+        {activeTab === 'schedule' && (
+          <ScheduledPublishing
+            dramas={dramas.map(d => ({ id: d.id, title: d.title }))}
+            episodes={[]} // Would be populated from episode data
+            onClose={() => setActiveTab('stats')}
+          />
+        )}
+
+        {/* Tab Content 6: Episode Templates */}
+        {activeTab === 'templates' && (
+          <EpisodeTemplates onClose={() => setActiveTab('stats')} />
+        )}
+
+        {/* Tab Content 7: Admin Activity Log */}
+        {activeTab === 'activity' && (
+          <AdminActivityLog onClose={() => setActiveTab('stats')} />
+        )}
+
+        {/* Tab Content 8: Dramas Management List */}
         {activeTab === 'dramas' && (
           dramas.length === 0 ? (
             <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800">

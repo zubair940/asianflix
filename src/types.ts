@@ -28,6 +28,7 @@ export interface Drama {
   totalRatingsCount: number;
   views: number;
   createdAt: string;
+  episodeCount?: number;
 }
 
 export interface Subtitle {
