@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Film, Heart, Sparkles, Globe, Shield, Tv, Download, Twitter, Github, MessageSquare, Youtube } from 'lucide-react';
+import { Film, Heart, Sparkles, Globe, Shield, Tv, Download, Twitter, Youtube } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -41,16 +41,10 @@ export const Footer: React.FC = () => {
               </span>
             </div>
             <div className="flex items-center gap-4 pt-2">
-              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl bg-gray-900 border border-white/10 text-gray-400 hover:text-cyan-400 hover:border-cyan-400/50 transition-all" aria-label="Follow us on Twitter">
+              <a href="https://x.com/asianflixon" target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl bg-gray-900 border border-white/10 text-gray-400 hover:text-cyan-400 hover:border-cyan-400/50 transition-all" aria-label="Follow us on X">
                 <Twitter className="w-5 h-5" />
               </a>
-              <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl bg-gray-900 border border-white/10 text-gray-400 hover:text-cyan-400 hover:border-cyan-400/50 transition-all" aria-label="GitHub Repository">
-                <Github className="w-5 h-5" />
-              </a>
-<a href="https://discord.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl bg-gray-900 border border-white/10 text-gray-400 hover:text-cyan-400 hover:border-cyan-400/50 transition-all" aria-label="Join Discord">
-              <MessageSquare className="w-5 h-5" />
-            </a>
-              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl bg-gray-900 border border-white/10 text-gray-400 hover:text-cyan-400 hover:border-cyan-400/50 transition-all" aria-label="YouTube Channel">
+              <a href="https://www.youtube.com/@Asianflix-offical" target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl bg-gray-900 border border-white/10 text-gray-400 hover:text-cyan-400 hover:border-cyan-400/50 transition-all" aria-label="YouTube Channel">
                 <Youtube className="w-5 h-5" />
               </a>
             </div>
@@ -60,11 +54,11 @@ export const Footer: React.FC = () => {
           <nav className="space-y-4" aria-label="Quick navigation">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-200 mb-4">Quick Navigation</h4>
             <ul className="space-y-3 text-sm">
-              <li><Link to="/" className="text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-2">Home & Trending</Link></li>
-              <li><Link to="/search" className="text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-2">Genre & Category Discovery</Link></li>
-              <li><Link to="/search?sort=rating" className="text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-2">Top Rated Dramas</Link></li>
-              <li><Link to="/search?sort=views" className="text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-2">Most Watched</Link></li>
-              <li><Link to="/search?sort=latest" className="text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-2">Latest Uploads</Link></li>
+              <li><Link to="/" className="hover:text-cyan-400 transition-colors">Home & Trending</Link></li>
+              <li><Link to="/search" className="hover:text-cyan-400 transition-colors">Genre & Category Discovery</Link></li>
+              <li><Link to="/search?sort=rating" className="hover:text-cyan-400 transition-colors">Top Rated Dramas</Link></li>
+              <li><Link to="/search?sort=views" className="hover:text-cyan-400 transition-colors">Most Watched</Link></li>
+              <li><Link to="/search?sort=latest" className="hover:text-cyan-400 transition-colors">Latest Uploads</Link></li>
             </ul>
           </nav>
 
@@ -72,12 +66,12 @@ export const Footer: React.FC = () => {
           <nav className="space-y-4" aria-label="Drama categories">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-200 mb-4">Drama Categories</h4>
             <ul className="space-y-3 text-sm">
-              <li><Link to="/search?category=K-Drama" className="text-gray-400 hover:text-cyan-400 transition-colors">K-Dramas (Korean)</Link></li>
-              <li><Link to="/search?category=C-Drama" className="text-gray-400 hover:text-cyan-400 transition-colors">C-Dramas (Chinese)</Link></li>
-              <li><Link to="/search?category=J-Drama" className="text-gray-400 hover:text-cyan-400 transition-colors">J-Dramas (Japanese)</Link></li>
-              <li><Link to="/search?category=Pakistani Drama" className="text-gray-400 hover:text-cyan-400 transition-colors">Pakistani Dramas</Link></li>
-              <li><Link to="/search?category=Turkish Drama" className="text-gray-400 hover:text-cyan-400 transition-colors">Turkish Dramas</Link></li>
-              <li><Link to="/search?category=Thai Drama" className="text-gray-400 hover:text-cyan-400 transition-colors">Thai Dramas (Lakorn)</Link></li>
+              <li><Link to="/search?category=K-Drama" className="hover:text-cyan-400 transition-colors">K-Dramas (Korean)</Link></li>
+              <li><Link to="/search?category=C-Drama" className="hover:text-cyan-400 transition-colors">C-Dramas (Chinese)</Link></li>
+              <li><Link to="/search?category=J-Drama" className="hover:text-cyan-400 transition-colors">J-Dramas (Japanese)</Link></li>
+              <li><Link to="/search?category=Pakistani Drama" className="hover:text-cyan-400 transition-colors">Pakistani Dramas</Link></li>
+              <li><Link to="/search?category=Turkish Drama" className="hover:text-cyan-400 transition-colors">Turkish Dramas</Link></li>
+              <li><Link to="/search?category=Thai Drama" className="hover:text-cyan-400 transition-colors">Thai Dramas (Lakorn)</Link></li>
             </ul>
           </nav>
 

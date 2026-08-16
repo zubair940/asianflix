@@ -16,6 +16,7 @@ import { SystemAnalyticsDashboard } from './SystemAnalyticsDashboard.js';
 import { ScheduledPublishing } from './ScheduledPublishing.js';
 import { AdminActivityLog } from './AdminActivityLog.js';
 import { EpisodeTemplates } from './EpisodeTemplates.js';
+import { AdminAnalytics } from './AdminAnalytics.js';
 import {
   Film,
   Users,
@@ -36,13 +37,14 @@ import {
   History,
   Sparkles,
   Zap,
-  LayoutDashboard
+  LayoutDashboard,
+  BarChart2
 } from 'lucide-react';
 
 import { useLocation } from 'react-router-dom';
 
 interface AdminDashboardProps {
-  initialTab?: 'stats' | 'dramas' | 'episodes' | 'users' | 'reorder' | 'reviews' | 'danmaku' | 'cluster' | 'schedule' | 'activity' | 'templates';
+  initialTab?: 'stats' | 'dramas' | 'episodes' | 'users' | 'reorder' | 'reviews' | 'danmaku' | 'cluster' | 'schedule' | 'activity' | 'templates' | 'analytics';
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) => {
@@ -61,7 +63,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
   const [dramas, setDramas] = useState<Drama[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<'stats' | 'dramas' | 'episodes' | 'users' | 'reorder' | 'reviews' | 'danmaku' | 'cluster' | 'schedule' | 'activity' | 'templates'>(getStartingTab);
+  const [activeTab, setActiveTab] = useState<'stats' | 'dramas' | 'episodes' | 'users' | 'reorder' | 'reviews' | 'danmaku' | 'cluster' | 'schedule' | 'activity' | 'templates' | 'analytics'>(getStartingTab);
 
   const [showAddDrama, setShowAddDrama] = useState(false);
   const [showAddEpisode, setShowAddEpisode] = useState(false);
@@ -251,7 +253,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <LayoutDashboard className="w-4 h-4" /> Overview
+            <BarChart2 className="w-4 h-4" /> Analytics
+          </button>
+
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`pb-3 px-2 text-sm font-bold flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+              activeTab === 'analytics'
+                ? 'border-cyan-500 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" /> Analytics
           </button>
 
           <button
@@ -574,6 +587,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
               </div>
             ))}
           </div>
+        )}
+
+        {/* Tab Content 10: Analytics */}
+        {activeTab === 'analytics' && (
+          <AdminAnalytics />
         )}
       </div>
     </div>

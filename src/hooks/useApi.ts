@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { api, cacheUtils } from '../services/api.js';
+import { api, cacheUtils, queryClient } from '../services/api.js';
 import { Drama, WatchHistoryItem, DashboardStats, User } from '../types.js';
 
 interface UseApiOptions<T> {
@@ -103,7 +103,7 @@ export function useDramaList(params?: {
   sort?: string;
 }) {
   return useApi<DramaListResponse>(
-    () => api.get('/dramas', buildQueryString(params)),
+    () => api.get('/dramas', params),
     { cacheKey: `dramas:${buildQueryString(params)}`, dependencies: [params] }
   );
 }
@@ -170,7 +170,9 @@ export function useMutation<T = any, TVariables = any>(
       try {
         const result = await mutationFn(variables);
 
-        options.invalidateCache?.forEach((pattern) => cacheUtils.invalidate(pattern));
+        options.invalidateCache?.forEach((pattern) => {
+          queryClient.invalidateQueries({ queryKey: [pattern] });
+        });
 
         options.onSuccess?.(result, variables);
         return result;

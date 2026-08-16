@@ -287,6 +287,7 @@ export const bulkGenerateEpisodes = (req: Request, res: Response) => {
         ],
         thumbnail: drama.backdrop || drama.poster,
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         servers,
         skipIntroStart: 0,
         skipIntroEnd: 85,

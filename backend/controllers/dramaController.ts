@@ -86,7 +86,7 @@ export const createDrama = async (req: Request, res: Response) => {
       category: category || 'K-Drama',
       cast: Array.isArray(cast) ? cast : (typeof cast === 'string' ? cast.split(',').map((s:string) => s.trim()) : []),
       director: director || 'Unknown', releaseYear: Number(releaseYear) || new Date().getFullYear(),
-      averageRating: 5.0, totalRatingsCount: 1, views: 0, createdAt: new Date().toISOString()
+      averageRating: 5.0, totalRatingsCount: 1, views: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
     };
 
     await (await dramasCollection()).insertOne(newDrama);
@@ -112,6 +112,7 @@ export const updateDrama = async (req: Request, res: Response) => {
     if (cast) drama.cast = Array.isArray(cast) ? cast : cast.split(',').map((s:string) => s.trim());
     if (director) drama.director = director;
     if (releaseYear) drama.releaseYear = Number(releaseYear);
+    drama.updatedAt = new Date().toISOString();
     await collection.replaceOne({ id: req.params.id }, drama);
     return res.json({ message: 'Drama updated successfully', drama });
   } catch (error: any) {

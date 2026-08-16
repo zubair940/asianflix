@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.js';
 import { store, Rating, WatchHistory } from '../config/store.js';
 
@@ -22,6 +22,7 @@ export const toggleWatchlist = (req: AuthRequest, res: Response) => {
     added = true;
   }
 
+  user.updatedAt = new Date().toISOString();
   store.saveUsers();
 
   return res.json({
@@ -54,12 +55,14 @@ export const updateWatchHistory = (req: AuthRequest, res: Response) => {
   );
 
   const now = new Date().toISOString();
+  const completed = progress && duration && progress >= duration * 0.9;
 
   if (existingIndex > -1) {
     store.history[existingIndex].episodeId = episodeId;
     store.history[existingIndex].progress = progress || 0;
     store.history[existingIndex].duration = duration || 0;
     store.history[existingIndex].lastWatched = now;
+    store.history[existingIndex].completed = completed;
   } else {
     const newHistory: WatchHistory = {
       id: `hist_${Date.now()}`,
@@ -68,12 +71,20 @@ export const updateWatchHistory = (req: AuthRequest, res: Response) => {
       episodeId,
       progress: progress || 0,
       duration: duration || 0,
-      lastWatched: now
+      lastWatched: now,
+      completed
     };
     store.history.push(newHistory);
   }
 
+  const userIndex = store.users.findIndex(u => u.id === req.user!.id);
+  if (userIndex !== -1) {
+    store.users[userIndex].updatedAt = now;
+  }
+
   store.saveHistory();
+  store.saveUsers();
+
   return res.json({ message: 'History updated' });
 };
 
@@ -97,6 +108,23 @@ export const getWatchHistory = (req: AuthRequest, res: Response) => {
   return res.json(enriched);
 };
 
+export const clearWatchHistory = (req: AuthRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ message: 'Authentication required' });
+
+  const { dramaId } = req.body;
+  
+  if (dramaId) {
+    store.history = store.history.filter(
+      h => !(h.userId === req.user!.id && h.dramaId === dramaId)
+    );
+  } else {
+    store.history = store.history.filter(h => h.userId !== req.user!.id);
+  }
+
+  store.saveHistory();
+  return res.json({ message: dramaId ? 'Drama history cleared' : 'All watch history cleared' });
+};
+
 export const addRating = (req: AuthRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ message: 'Authentication required' });
 
@@ -108,7 +136,6 @@ export const addRating = (req: AuthRequest, res: Response) => {
   const drama = store.dramas.find(d => d.id === dramaId);
   if (!drama) return res.status(404).json({ message: 'Drama not found' });
 
-  // Check if user already rated this drama
   const existingIndex = store.ratings.findIndex(r => r.userId === req.user!.id && r.dramaId === dramaId);
 
   if (existingIndex > -1) {
@@ -129,12 +156,12 @@ export const addRating = (req: AuthRequest, res: Response) => {
     store.ratings.unshift(newRating);
   }
 
-  // Recalculate drama average rating
   const dramaRatings = store.ratings.filter(r => r.dramaId === dramaId);
   const avg = dramaRatings.reduce((acc, r) => acc + r.rating, 0) / dramaRatings.length;
 
   drama.averageRating = Number(avg.toFixed(1));
   drama.totalRatingsCount = dramaRatings.length;
+  drama.updatedAt = new Date().toISOString();
 
   store.saveRatings();
   store.saveDramas();
@@ -144,4 +171,140 @@ export const addRating = (req: AuthRequest, res: Response) => {
     averageRating: drama.averageRating,
     totalRatingsCount: drama.totalRatingsCount
   });
+};
+
+export const getUserRatings = (req: AuthRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ message: 'Authentication required' });
+
+  const ratings = store.ratings
+    .filter(r => r.userId === req.user!.id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const enriched = ratings.map(r => {
+    const drama = store.dramas.find(d => d.id === r.dramaId);
+    return {
+      ...r,
+      drama: drama ? { id: drama.id, title: drama.title, poster: drama.poster } : null
+    };
+  });
+
+  return res.json(enriched);
+};
+
+export const getAvailableAvatars = (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const avatars = Array.from({ length: 20 }, (_, i) => ({
+      index: i,
+      url: `https://api.dicebear.com/7.x/avataaars/svg?seed=avatar_${i}`,
+      name: `Avatar ${i + 1}`
+    }));
+    return res.json({ avatars });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProfile = (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
+
+    const { name, bio, avatarIndex } = req.body;
+    const userIndex = store.users.findIndex(u => u.id === req.user!.id);
+
+    if (userIndex === -1) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (name) store.users[userIndex].name = name.trim();
+    if (bio !== undefined) store.users[userIndex].bio = bio.trim();
+    if (avatarIndex !== undefined && Number.isInteger(avatarIndex) && avatarIndex >= 0 && avatarIndex < 20) {
+      store.users[userIndex].avatarIndex = avatarIndex;
+      store.users[userIndex].avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${store.users[userIndex].id}_${avatarIndex}`;
+    }
+
+    store.users[userIndex].updatedAt = new Date().toISOString();
+    store.saveUsers();
+
+    const { passwordHash: _, ...userData } = store.users[userIndex];
+    return res.json({
+      message: 'Profile updated successfully',
+      user: userData
+    });
+  } catch (error: unknown) {
+    const err = error as Error;
+    return res.status(500).json({ message: err.message || 'Server error updating profile' });
+  }
+};
+
+export const changePassword = (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
+
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: 'Passwords do not match' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters' });
+    }
+
+    const user = store.users.find(u => u.id === req.user!.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const bcrypt = require('bcryptjs');
+    const isMatch = bcrypt.compareSync(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    user.passwordHash = bcrypt.hashSync(newPassword, 10);
+    user.updatedAt = new Date().toISOString();
+    store.saveUsers();
+
+    return res.json({ message: 'Password changed successfully' });
+  } catch (error: unknown) {
+    const err = error as Error;
+    return res.status(500).json({ message: err.message || 'Server error changing password' });
+  }
+};
+
+export const deleteAccount = (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
+
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ message: 'Password confirmation required' });
+    }
+
+    const user = store.users.find(u => u.id === req.user!.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const bcrypt = require('bcryptjs');
+    const isMatch = bcrypt.compareSync(password, user.passwordHash);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Password is incorrect' });
+    }
+
+    const userIndex = store.users.findIndex(u => u.id === req.user!.id);
+    store.users.splice(userIndex, 1);
+    
+    store.history = store.history.filter(h => h.userId !== req.user!.id);
+    store.ratings = store.ratings.filter(r => r.userId !== req.user!.id);
+    
+    store.saveUsers();
+    store.saveHistory();
+    store.saveRatings();
+
+    return res.json({ message: 'Account deleted successfully' });
+  } catch (error: unknown) {
+    const err = error as Error;
+    return res.status(500).json({ message: err.message || 'Server error deleting account' });
+  }
 };

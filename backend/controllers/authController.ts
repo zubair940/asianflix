@@ -5,9 +5,48 @@ import { store, User } from '../config/store.js';
 import { AuthRequest } from '../middleware/auth.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'kdramabox_jwt_secret_key_2026_super_secure';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'kdramabox_refresh_secret_key_2026_super_secure';
 const TARGET_ADMIN_EMAIL = 'iamzubair708@gmail.com';
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  path: '/'
+};
+const REFRESH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  maxAge: 30 * 24 * 60 * 60 * 1000,
+  path: '/'
+};
 
-export const register = (req: Request, res: Response) => {
+function generateTokens(user: User) {
+  const accessToken = jwt.sign(
+    { id: user.id, role: user.role },
+    JWT_SECRET,
+    { expiresIn: '15m' }
+  );
+  const refreshToken = jwt.sign(
+    { id: user.id, type: 'refresh' },
+    JWT_REFRESH_SECRET,
+    { expiresIn: '30d' }
+  );
+  return { accessToken, refreshToken };
+}
+
+function setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
+  res.cookie('access_token', accessToken, COOKIE_OPTIONS);
+  res.cookie('refresh_token', refreshToken, REFRESH_COOKIE_OPTIONS);
+}
+
+function clearAuthCookies(res: Response) {
+  res.clearCookie('access_token', { ...COOKIE_OPTIONS, maxAge: 0 });
+  res.clearCookie('refresh_token', { ...REFRESH_COOKIE_OPTIONS, maxAge: 0 });
+}
+
+export const register = async (req: Request, res: Response) => {
   try {
     const { name, email, password, confirmPassword } = req.body;
 
@@ -30,8 +69,8 @@ export const register = (req: Request, res: Response) => {
       return res.status(400).json({ message: 'An account with this email already exists' });
     }
 
-    // Role assignment strictly based on email
     const role = cleanEmail === TARGET_ADMIN_EMAIL.toLowerCase() ? 'admin' : 'user';
+    const avatarIndex = Math.floor(Math.random() * 20);
 
     const passwordHash = bcrypt.hashSync(password, 10);
     const newUser: User = {
@@ -39,30 +78,37 @@ export const register = (req: Request, res: Response) => {
       name,
       email: cleanEmail,
       passwordHash,
-      avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
+      avatarIndex,
+      bio: '',
       role,
       isBlocked: false,
       watchlist: [],
-      createdAt: new Date().toISOString()
+      watchHistory: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString()
     };
 
     store.users.push(newUser);
     store.saveUsers();
 
-    const token = jwt.sign({ id: newUser.id, role: newUser.role }, JWT_SECRET, { expiresIn: '7d' });
+    const { accessToken, refreshToken } = generateTokens(newUser);
+    setAuthCookies(res, accessToken, refreshToken);
 
     const { passwordHash: _, ...userData } = newUser;
     return res.status(201).json({
       message: 'Registration successful',
-      token,
-      user: userData
+      user: userData,
+      accessToken
     });
-  } catch (error: any) {
-    return res.status(500).json({ message: error.message || 'Server error during registration' });
+  } catch (error: unknown) {
+    const err = error as Error;
+    return res.status(500).json({ message: err.message || 'Server error during registration' });
   }
 };
 
-export const login = (req: Request, res: Response) => {
+export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -85,27 +131,76 @@ export const login = (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    // Ensure role is dynamically synced based on email
     const expectedRole = cleanEmail === TARGET_ADMIN_EMAIL.toLowerCase() ? 'admin' : 'user';
     if (user.role !== expectedRole) {
       user.role = expectedRole;
-      store.saveUsers();
     }
 
-    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    user.lastLoginAt = new Date().toISOString();
+    user.updatedAt = new Date().toISOString();
+    store.saveUsers();
+
+    const { accessToken, refreshToken } = generateTokens(user);
+    setAuthCookies(res, accessToken, refreshToken);
 
     const { passwordHash: _, ...userData } = user;
     return res.json({
       message: 'Login successful',
-      token,
-      user: userData
+      user: userData,
+      accessToken
     });
-  } catch (error: any) {
-    return res.status(500).json({ message: error.message || 'Server error during login' });
+  } catch (error: unknown) {
+    const err = error as Error;
+    return res.status(500).json({ message: err.message || 'Server error during login' });
   }
 };
 
-export const getMe = (req: AuthRequest, res: Response) => {
+export const logout = async (req: Request, res: Response) => {
+  try {
+    clearAuthCookies(res);
+    return res.json({ message: 'Logged out successfully' });
+  } catch (error: unknown) {
+    const err = error as Error;
+    return res.status(500).json({ message: err.message || 'Server error during logout' });
+  }
+};
+
+export const refreshToken = async (req: Request, res: Response) => {
+  try {
+    const refreshToken = req.cookies?.refresh_token;
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'Refresh token not provided' });
+    }
+
+    const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as { id: string; type: string };
+    if (decoded.type !== 'refresh') {
+      return res.status(401).json({ message: 'Invalid token type' });
+    }
+
+    const user = store.users.find(u => u.id === decoded.id);
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({ message: 'Your account has been blocked' });
+    }
+
+    const { accessToken, refreshToken: newRefreshToken } = generateTokens(user);
+    setAuthCookies(res, accessToken, newRefreshToken);
+
+    return res.json({ accessToken });
+  } catch (error: unknown) {
+    const err = error as Error;
+    if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
+      clearAuthCookies(res);
+      return res.status(401).json({ message: 'Session expired, please login again' });
+    }
+    return res.status(500).json({ message: 'Token refresh failed' });
+  }
+};
+
+export const getMe = async (req: AuthRequest, res: Response) => {
   if (!req.user) {
     return res.status(401).json({ message: 'Not authenticated' });
   }
@@ -114,20 +209,25 @@ export const getMe = (req: AuthRequest, res: Response) => {
   return res.json({ user: userData });
 };
 
-export const updateProfile = (req: AuthRequest, res: Response) => {
+export const updateProfile = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
 
-    const { name, avatar } = req.body;
+    const { name, bio, avatarIndex } = req.body;
     const userIndex = store.users.findIndex(u => u.id === req.user!.id);
 
     if (userIndex === -1) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (name) store.users[userIndex].name = name;
-    if (avatar) store.users[userIndex].avatar = avatar;
+    if (name) store.users[userIndex].name = name.trim();
+    if (bio !== undefined) store.users[userIndex].bio = bio.trim();
+    if (avatarIndex !== undefined && Number.isInteger(avatarIndex) && avatarIndex >= 0 && avatarIndex < 20) {
+      store.users[userIndex].avatarIndex = avatarIndex;
+      store.users[userIndex].avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${store.users[userIndex].id}_${avatarIndex}`;
+    }
 
+    store.users[userIndex].updatedAt = new Date().toISOString();
     store.saveUsers();
 
     const { passwordHash: _, ...userData } = store.users[userIndex];
@@ -135,7 +235,45 @@ export const updateProfile = (req: AuthRequest, res: Response) => {
       message: 'Profile updated successfully',
       user: userData
     });
-  } catch (error: any) {
-    return res.status(500).json({ message: error.message || 'Server error updating profile' });
+  } catch (error: unknown) {
+    const err = error as Error;
+    return res.status(500).json({ message: err.message || 'Server error updating profile' });
+  }
+};
+
+export const changePassword = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
+
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: 'Passwords do not match' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters' });
+    }
+
+    const user = store.users.find(u => u.id === req.user!.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const isMatch = bcrypt.compareSync(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    user.passwordHash = bcrypt.hashSync(newPassword, 10);
+    user.updatedAt = new Date().toISOString();
+    store.saveUsers();
+
+    return res.json({ message: 'Password changed successfully' });
+  } catch (error: unknown) {
+    const err = error as Error;
+    return res.status(500).json({ message: err.message || 'Server error changing password' });
   }
 };

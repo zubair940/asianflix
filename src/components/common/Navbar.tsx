@@ -15,7 +15,6 @@ import {
   ShieldAlert,
   Menu,
   X,
-  Sparkles,
   Zap,
 } from 'lucide-react';
 
@@ -56,12 +55,12 @@ export const Navbar: React.FC = () => {
       deferredPrompt.prompt();
       const choiceResult = await deferredPrompt.userChoice;
       if (choiceResult.outcome === 'accepted') {
-        showToast('AsianFlix installed to your app launcher!', 'success');
+        showToast('AsianFlix installed to your app launcher', 'success');
       }
       setDeferredPrompt(null);
       setInstallable(false);
     } else {
-      showToast('PWA App ready! Tap "Add to Home Screen" in your browser menu.', 'info');
+      showToast('PWA App ready. Tap Add to Home Screen in your browser menu.', 'info');
     }
   };
 
@@ -88,7 +87,6 @@ export const Navbar: React.FC = () => {
       }`}
     >
       <div className="container flex items-center justify-between gap-4">
-        {/* Brand Logo */}
         <Link to="/" className="flex items-center gap-3 group" aria-label="AsianFlix Home">
           <div className="relative">
             <img
@@ -110,7 +108,6 @@ export const Navbar: React.FC = () => {
           </div>
         </Link>
 
-        {/* Search Bar - Desktop */}
         <form onSubmit={handleSearchSubmit} className="hidden lg:flex flex-1 max-w-xl relative" role="search">
           <label htmlFor="global-search" className="sr-only">Search dramas</label>
           <input
@@ -125,7 +122,6 @@ export const Navbar: React.FC = () => {
           <Search className="w-4.5 h-4.5 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
         </form>
 
-        {/* Navigation Actions */}
         <nav className="hidden lg:flex items-center gap-1" aria-label="Main navigation">
           {navLinks.map(({ path, label, icon: Icon }) => (
             <Link
@@ -165,9 +161,7 @@ export const Navbar: React.FC = () => {
           )}
         </nav>
 
-        {/* Right Section Tools */}
         <div className="flex items-center gap-2">
-          {/* PWA Download Button */}
           {installable && (
             <button
               onClick={handleInstallPWA}
@@ -179,7 +173,6 @@ export const Navbar: React.FC = () => {
             </button>
           )}
 
-          {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -193,13 +186,12 @@ export const Navbar: React.FC = () => {
             )}
           </button>
 
-          {/* User Section */}
           {user ? (
             <div className="flex items-center gap-2">
               <Link
                 to="/profile"
                 className="flex items-center gap-2.5 group hidden sm:flex"
-                aria-label={`View ${user.name}'s profile`}
+                aria-label={`View ${user.name} profile`}
               >
                 <div className="relative">
                   <img
@@ -239,7 +231,6 @@ export const Navbar: React.FC = () => {
             </div>
           )}
 
-          {/* Mobile Menu Toggle */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="lg:hidden p-2.5 rounded-xl bg-gray-900/80 hover:bg-gray-800 border border-white/10 text-gray-300 hover:text-white transition-all"
@@ -252,7 +243,6 @@ export const Navbar: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile Menu Drawer */}
       {mobileMenuOpen && (
         <div
           id="mobile-menu"
@@ -324,7 +314,6 @@ export const Navbar: React.FC = () => {
   );
 };
 
-// Type for beforeinstallprompt event
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;

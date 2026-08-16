@@ -1,33 +1,48 @@
-import { apiRequest } from './api.js';
-import { Drama, WatchHistoryItem } from '../types.js';
+import { userApi } from './api.js';
+import { Drama, WatchHistoryItem, Rating, Avatar } from '../types.js';
 
 export const userService = {
-  toggleWatchlist: (dramaId: string) => {
-    return apiRequest<{ message: string; watchlist: string[]; added: boolean }>('/users/watchlist', {
-      method: 'PUT',
-      body: JSON.stringify({ dramaId })
-    });
-  },
-
   getWatchlist: () => {
-    return apiRequest<Drama[]>('/users/watchlist');
+    return userApi.getWatchlist();
   },
 
-  updateWatchHistory: (dramaId: string, episodeId: string, progress: number, duration: number) => {
-    return apiRequest<{ message: string }>('/users/history', {
-      method: 'PUT',
-      body: JSON.stringify({ dramaId, episodeId, progress, duration })
-    });
+  toggleWatchlist: (dramaId: string) => {
+    return userApi.toggleWatchlist(dramaId);
   },
 
   getWatchHistory: () => {
-    return apiRequest<WatchHistoryItem[]>('/users/history');
+    return userApi.getWatchHistory();
+  },
+
+  updateWatchHistory: (dramaId: string, episodeId: string, progress: number, duration: number) => {
+    return userApi.updateWatchHistory(dramaId, episodeId, progress, duration);
+  },
+
+  clearWatchHistory: (dramaId?: string) => {
+    return userApi.clearWatchHistory(dramaId);
   },
 
   addRating: (dramaId: string, rating: number, review?: string) => {
-    return apiRequest<{ message: string; averageRating: number; totalRatingsCount: number }>('/users/rating', {
-      method: 'POST',
-      body: JSON.stringify({ dramaId, rating, review })
-    });
+    return userApi.addRating(dramaId, rating, review);
+  },
+
+  getUserRatings: () => {
+    return userApi.getUserRatings();
+  },
+
+  getAvailableAvatars: () => {
+    return userApi.getAvailableAvatars();
+  },
+
+  updateProfile: (name?: string, bio?: string, avatarIndex?: number) => {
+    return userApi.updateProfile(name, bio, avatarIndex);
+  },
+
+  changePassword: (currentPassword: string, newPassword: string, confirmPassword: string) => {
+    return userApi.changePassword(currentPassword, newPassword, confirmPassword);
+  },
+
+  deleteAccount: (password: string) => {
+    return userApi.deleteAccount(password);
   }
 };

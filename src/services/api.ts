@@ -1,163 +1,254 @@
-// API Service with Request Caching, Deduplication & Error Handling
+import { QueryClient } from '@tanstack/react-query';
+import { User, Drama, Episode, WatchHistoryItem, Rating, Avatar, DashboardStats, RealtimeStats, DramaAnalytics, UserEngagement, ContentPerformance, UserRetention, Subtitle, DramaDetailResponse } from '../types.js';
+
 const API_BASE_URL = '/api';
 
-interface RequestCacheEntry {
-  data: any;
-  timestamp: number;
-  promise?: Promise<any>;
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      retry: (failureCount, error) => {
+        if (failureCount >= 3) return false;
+        if (error instanceof Error && error.message.includes('401')) return false;
+        return true;
+      },
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+interface RequestConfig extends RequestInit {
+  params?: Record<string, string | number | boolean | undefined>;
 }
-
-class APICache {
-  private cache = new Map<string, RequestCacheEntry>();
-  private readonly TTL = 5 * 60 * 1000; // 5 minutes
-  private pendingRequests = new Map<string, Promise<any>>();
-
-  get(key: string): any | null {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
-
-    if (Date.now() - entry.timestamp > this.TTL) {
-      this.cache.delete(key);
-      return null;
-    }
-
-    return entry.data;
-  }
-
-  set(key: string, data: any): void {
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now(),
-    });
-  }
-
-  // Request deduplication - returns existing promise if same request is in flight
-  getOrCreatePromise(key: string, fetcher: () => Promise<any>): Promise<any> {
-    const existing = this.pendingRequests.get(key);
-    if (existing) {
-      return existing;
-    }
-
-    const promise = fetcher().finally(() => {
-      this.pendingRequests.delete(key);
-    });
-
-    this.pendingRequests.set(key, promise);
-    return promise;
-  }
-
-  clear(): void {
-    this.cache.clear();
-    this.pendingRequests.clear();
-  }
-
-  invalidate(pattern: string): void {
-    for (const key of this.cache.keys()) {
-      if (key.includes(pattern)) {
-        this.cache.delete(key);
-      }
-    }
-  }
-}
-
-const apiCache = new APICache();
 
 export async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {},
-  cacheKey?: string
+  config: RequestConfig = {}
 ): Promise<T> {
-  const token = localStorage.getItem('kdramabox_token');
+  const { params, ...options } = config;
+  
+  const url = new URL(`${API_BASE_URL}${endpoint}`, window.location.origin);
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        url.searchParams.append(key, String(value));
+      }
+    });
+  }
 
   const headers: Record<string, string> = {
-    ...((options.headers as Record<string, string>) || {}),
+    ...(options.headers as Record<string, string>),
   };
 
-  if (!(options.body instanceof FormData)) {
+  if (!(options.body instanceof FormData) && !(options.body instanceof URLSearchParams)) {
     headers['Content-Type'] = 'application/json';
   }
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  const response = await fetch(url.toString(), {
+    ...options,
+    headers,
+    credentials: 'include',
+  });
+
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text();
+    throw new Error(`API returned non-JSON response: ${text.slice(0, 200)}`);
   }
 
-  const cacheKeyFinal = cacheKey || `${options.method || 'GET'}:${endpoint}`;
+  const data = await response.json();
 
-  // For GET requests, check cache first
-  if ((!options.method || options.method === 'GET') && options.body === undefined) {
-    const cached = apiCache.get(cacheKeyFinal);
-    if (cached) {
-      return cached as T;
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('SESSION_EXPIRED');
     }
+    throw new Error(data.message || `API error (${response.status})`);
   }
 
-  const fetchFn = async (): Promise<T> => {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    // Handle non-JSON responses (e.g., HTML error pages)
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      const text = await response.text();
-      throw new Error(`API returned non-JSON response: ${text.slice(0, 200)}`);
-    }
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || `API error (${response.status})`);
-    }
-
-    // Cache successful GET responses
-    if ((!options.method || options.method === 'GET') && options.body === undefined) {
-      apiCache.set(cacheKeyFinal, data);
-    }
-
-    return data as T;
-  };
-
-  // Deduplicate concurrent identical requests
-  return apiCache.getOrCreatePromise(cacheKeyFinal, fetchFn);
+  return data as T;
 }
 
-// Specialized API methods with automatic cache invalidation
 export const api = {
-  get: <T>(endpoint: string, cacheKey?: string) =>
-    apiRequest<T>(endpoint, { method: 'GET' }, cacheKey),
+  get: <T>(endpoint: string, params?: Record<string, unknown>) =>
+    apiRequest<T>(endpoint, { method: 'GET', params: params as Record<string, string | number | boolean | undefined> }),
 
-  post: <T>(endpoint: string, body: any, cacheKey?: string) =>
-    apiRequest<T>(endpoint, { method: 'POST', body: JSON.stringify(body) }, cacheKey),
+  post: <T>(endpoint: string, body: unknown) =>
+    apiRequest<T>(endpoint, { method: 'POST', body: JSON.stringify(body) }),
 
-  put: <T>(endpoint: string, body: any, cacheKey?: string) => {
-    // Invalidate related GET caches on mutation
-    const baseEndpoint = endpoint.split('/')[1]; // e.g., 'dramas', 'episodes'
-    if (baseEndpoint) apiCache.invalidate(baseEndpoint);
-    return apiRequest<T>(endpoint, { method: 'PUT', body: JSON.stringify(body) }, cacheKey);
+  put: <T>(endpoint: string, body: unknown) =>
+    apiRequest<T>(endpoint, { method: 'PUT', body: JSON.stringify(body) }),
+
+  patch: <T>(endpoint: string, body: unknown) =>
+    apiRequest<T>(endpoint, { method: 'PATCH', body: JSON.stringify(body) }),
+
+  delete: <T>(endpoint: string, body?: unknown) =>
+    apiRequest<T>(endpoint, { method: 'DELETE', body: body ? JSON.stringify(body) : undefined }),
+
+  upload: <T>(endpoint: string, formData: FormData) =>
+    apiRequest<T>(endpoint, { method: 'POST', body: formData }),
+};
+
+export const authApi = {
+  login: (email: string, password: string) =>
+    api.post<{ user: User; accessToken: string }>('/auth/login', { email, password }),
+
+  register: (name: string, email: string, password: string, confirmPassword: string) =>
+    api.post<{ user: User; accessToken: string }>('/auth/register', { name, email, password, confirmPassword }),
+
+  logout: () =>
+    api.post('/auth/logout', {}),
+
+  refresh: () =>
+    api.post<{ accessToken: string }>('/auth/refresh', {}),
+
+  getMe: () =>
+    api.get<{ user: User }>('/auth/me', {}),
+
+  updateProfile: (name?: string, avatar?: string, bio?: string, avatarIndex?: number) =>
+    api.put<{ user: User }>('/auth/update', { name, avatar, bio, avatarIndex }),
+
+  changePassword: (currentPassword: string, newPassword: string, confirmPassword: string) =>
+    api.put('/auth/password', { currentPassword, newPassword, confirmPassword }),
+};
+
+export const userApi = {
+  getWatchlist: () =>
+    api.get<Drama[]>('/users/watchlist'),
+
+  toggleWatchlist: (dramaId: string) =>
+    api.put<{ message: string; watchlist: string[]; added: boolean }>('/users/watchlist', { dramaId }),
+
+  getWatchHistory: () =>
+    api.get<WatchHistoryItem[]>('/users/history'),
+
+  updateWatchHistory: (dramaId: string, episodeId: string, progress: number, duration: number) =>
+    api.put('/users/history', { dramaId, episodeId, progress, duration }),
+
+  clearWatchHistory: (dramaId?: string) =>
+    api.delete('/users/history', { body: dramaId ? { dramaId } : {} }),
+
+  addRating: (dramaId: string, rating: number, review?: string) =>
+    api.post('/users/rating', { dramaId, rating, review }),
+
+  getUserRatings: () =>
+    api.get<Rating[]>('/users/ratings'),
+
+  getAvailableAvatars: () =>
+    api.get<{ avatars: Avatar[] }>('/users/avatars'),
+
+  updateProfile: (name?: string, bio?: string, avatarIndex?: number) =>
+    api.put<{ user: User }>('/users/profile', { name, bio, avatarIndex }),
+
+  changePassword: (currentPassword: string, newPassword: string, confirmPassword: string) =>
+    api.put('/users/password', { currentPassword, newPassword, confirmPassword }),
+
+  deleteAccount: (password: string) =>
+    api.delete('/users/account', { body: { password } }),
+};
+
+export const dramaApi = {
+  getAll: (params?: { q?: string; category?: string; genre?: string; year?: number; minRating?: number; sort?: string }) =>
+    api.get<{ total: number; dramas: Drama[] }>('/dramas', params),
+
+  getTrending: () =>
+    api.get<Drama[]>('/dramas/trending'),
+
+  getLatest: () =>
+    api.get<Drama[]>('/dramas/latest'),
+
+  getByGenre: (genre: string) =>
+    api.get<Drama[]>(`/dramas/genre/${encodeURIComponent(genre)}`),
+
+  getById: (id: string) =>
+    api.get<DramaDetailResponse>(`/dramas/${id}`),
+
+  create: (data: Partial<Drama>) =>
+    api.post<{ message: string; drama: Drama }>('/dramas', data),
+
+  update: (id: string, data: Partial<Drama>) =>
+    api.put<{ message: string; drama: Drama }>(`/dramas/${id}`, data),
+
+  delete: (id: string) =>
+    api.delete<{ message: string }>(`/dramas/${id}`),
+};
+
+export const episodeApi = {
+  getAll: (params?: { dramaId?: string; search?: string }) =>
+    api.get<Episode[]>('/episodes', params),
+
+  getByDrama: (dramaId: string) =>
+    api.get<Episode[]>(`/episodes/drama/${dramaId}`),
+
+  create: (data: Partial<Episode>) =>
+    api.post<{ message: string; episode: Episode }>('/episodes', data),
+
+  update: (id: string, data: Partial<Episode>) =>
+    api.put<{ message: string; episode: Episode }>(`/episodes/${id}`, data),
+
+  replaceVideo: (id: string, videoUrl: string) =>
+    api.put<{ message: string; episode: Episode }>(`/episodes/${id}/video`, { videoUrl }),
+
+  updateSubtitle: (id: string, subtitles: Subtitle[]) =>
+    api.put<{ message: string; episode: Episode }>(`/episodes/${id}/subtitle`, { subtitles }),
+
+  delete: (id: string) =>
+    api.delete<{ message: string }>(`/episodes/${id}`),
+
+  reorder: (dramaId: string, episodeIds: string[]) =>
+    api.post<{ message: string; episodes: Episode[] }>('/episodes/reorder', { dramaId, episodeIds }),
+};
+
+export const adminApi = {
+  getDashboardStats: () =>
+    api.get<DashboardStats>('/admin/dashboard', {}),
+
+  getAllUsers: () =>
+    api.get<User[]>('/admin/users', {}),
+
+  toggleBlockUser: (userId: string) =>
+    api.put<{ message: string; isBlocked: boolean }>(`/admin/users/${userId}/block`, {}),
+
+  deleteUser: (userId: string) =>
+    api.delete<{ message: string }>(`/admin/users/${userId}`, {}),
+
+  deleteReview: (reviewId: string) =>
+    api.delete<{ message: string }>(`/admin/reviews/${reviewId}`, {}),
+};
+
+export const analyticsApi = {
+  getDashboardStats: () =>
+    api.get<DashboardStats>('/analytics/dashboard', {}),
+
+  getRealtimeStats: () =>
+    api.get<RealtimeStats>('/analytics/realtime', {}),
+
+  getDramaAnalytics: (dramaId: string, range?: string) =>
+    api.get<DramaAnalytics>(`/analytics/drama/${dramaId}`, { range }),
+
+  getUserEngagement: (range?: string) =>
+    api.get<UserEngagement>(`/analytics/users/engagement`, { range }),
+
+  getContentPerformance: (range?: string, limit?: number) =>
+    api.get<ContentPerformance>(`/analytics/content/performance`, { range, limit }),
+
+  getUserRetention: (range?: string) =>
+    api.get<UserRetention>(`/analytics/users/retention`, { range }),
+
+  trackEvent: (type: string, dramaId?: string, episodeId?: string, metadata?: Record<string, unknown>) =>
+    api.post('/analytics/track', { type, dramaId, episodeId, metadata }),
+};
+
+export const uploadApi = {
+  uploadFile: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.upload<{ url: string; filename: string }>('/upload/file', formData);
   },
-
-  delete: <T>(endpoint: string, cacheKey?: string) => {
-    const baseEndpoint = endpoint.split('/')[1];
-    if (baseEndpoint) apiCache.invalidate(baseEndpoint);
-    return apiRequest<T>(endpoint, { method: 'DELETE' }, cacheKey);
-  },
-
-  upload: <T>(endpoint: string, formData: FormData, cacheKey?: string) =>
-    apiRequest<T>(endpoint, { method: 'POST', body: formData }, cacheKey),
 };
 
 // Cache management utilities
 export const cacheUtils = {
-  clear: () => apiCache.clear(),
-  invalidate: (pattern: string) => apiCache.invalidate(pattern),
-  invalidateDrama: (dramaId?: string) => {
-    apiCache.invalidate('dramas');
-    if (dramaId) apiCache.invalidate(dramaId);
-  },
-  invalidateEpisodes: (dramaId?: string) => {
-    apiCache.invalidate('episodes');
-    if (dramaId) apiCache.invalidate(dramaId);
-  },
-  invalidateUser: () => apiCache.invalidate('auth'),
+  clear: () => queryClient.clear(),
+  invalidate: (key: string) => queryClient.invalidateQueries({ queryKey: [key] }),
 };

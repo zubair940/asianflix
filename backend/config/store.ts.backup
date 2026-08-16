@@ -10,15 +10,10 @@ export interface User {
   email: string;
   passwordHash: string;
   avatar: string;
-  avatarIndex: number;
-  bio: string;
   role: 'user' | 'admin';
   isBlocked: boolean;
-  watchlist: string[];
-  watchHistory: WatchHistory[];
+  watchlist: string[]; // drama IDs
   createdAt: string;
-  updatedAt: string;
-  lastLoginAt?: string;
 }
 
 export interface Drama {
@@ -37,7 +32,6 @@ export interface Drama {
   totalRatingsCount: number;
   views: number;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface ServerMirror {
@@ -55,12 +49,11 @@ export interface Episode {
   dramaId: string;
   episodeNumber: number;
   title: string;
-  duration: string;
+  duration: string; // e.g., "65 mins"
   videoUrl: string;
   subtitles: { language: string; label: string; url: string }[];
   thumbnail: string;
   createdAt: string;
-  updatedAt: string;
   servers?: ServerMirror[];
   skipIntroStart?: number;
   skipIntroEnd?: number;
@@ -131,7 +124,7 @@ export interface Rating {
   userName: string;
   userAvatar: string;
   dramaId: string;
-  rating: number;
+  rating: number; // 1-5
   review: string;
   createdAt: string;
 }
@@ -141,22 +134,9 @@ export interface WatchHistory {
   userId: string;
   dramaId: string;
   episodeId: string;
-  progress: number;
-  duration: number;
+  progress: number; // seconds or percentage
+  duration: number; // total duration seconds
   lastWatched: string;
-  completed: boolean;
-}
-
-export interface AnalyticsEvent {
-  id: string;
-  type: 'view' | 'watch' | 'complete' | 'search' | 'login' | 'register';
-  userId?: string;
-  dramaId?: string;
-  episodeId?: string;
-  metadata?: Record<string, unknown>;
-  timestamp: string;
-  ip?: string;
-  userAgent?: string;
 }
 
 class Store {
@@ -168,7 +148,6 @@ class Store {
   private danmakuFile = path.join(DATA_DIR, 'danmaku.json');
   private bannersFile = path.join(DATA_DIR, 'banners.json');
   private collectionsFile = path.join(DATA_DIR, 'collections.json');
-  private analyticsFile = path.join(DATA_DIR, 'analytics.json');
 
   public users: User[] = [];
   public dramas: Drama[] = [];
@@ -178,7 +157,6 @@ class Store {
   public danmaku: DanmakuComment[] = [];
   public banners: HeroBanner[] = [];
   public collections: UserCollection[] = [];
-  public analytics: AnalyticsEvent[] = [];
   public watchPartyRooms: Map<string, WatchPartyRoom> = new Map();
 
   constructor() {
@@ -198,7 +176,7 @@ class Store {
     return fallback;
   }
 
-  private writeJSON(filePath: string, data: unknown) {
+  private writeJSON(filePath: string, data: any) {
     try {
       fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
     } catch (e) {
@@ -215,7 +193,6 @@ class Store {
     this.danmaku = this.readJSON(this.danmakuFile, []);
     this.banners = this.readJSON(this.bannersFile, []);
     this.collections = this.readJSON(this.collectionsFile, []);
-    this.analytics = this.readJSON(this.analyticsFile, []);
   }
 
   public saveUsers() { this.writeJSON(this.usersFile, this.users); }
@@ -226,12 +203,13 @@ class Store {
   public saveDanmaku() { this.writeJSON(this.danmakuFile, this.danmaku); }
   public saveBanners() { this.writeJSON(this.bannersFile, this.banners); }
   public saveCollections() { this.writeJSON(this.collectionsFile, this.collections); }
-  public saveAnalytics() { this.writeJSON(this.analyticsFile, this.analytics); }
 
   private seedInitialData() {
+    // Hardcoded Admin Email & Password
     const ADMIN_EMAIL = 'iamzubair708@gmail.com';
     const ADMIN_PASS = 'i@mZura8';
 
+    // Enforce that only iamzubair708@gmail.com gets role 'admin', all other users get role 'user'
     this.users.forEach(u => {
       if (u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
         u.role = 'admin';
@@ -240,6 +218,7 @@ class Store {
       }
     });
 
+    // Seed/Update Admin User
     const adminIndex = this.users.findIndex(u => u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
     const adminHash = bcrypt.hashSync(ADMIN_PASS, 10);
 
@@ -249,26 +228,18 @@ class Store {
         name: 'Zubair (Admin)',
         email: ADMIN_EMAIL.toLowerCase(),
         passwordHash: adminHash,
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
-        avatarIndex: 0,
-        bio: 'Platform Administrator',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
         role: 'admin',
         isBlocked: false,
         watchlist: ['drama_1', 'drama_2'],
-        watchHistory: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString()
+        createdAt: new Date().toISOString()
       });
     } else {
       this.users[adminIndex].passwordHash = adminHash;
       this.users[adminIndex].role = 'admin';
-      this.users[adminIndex].avatarIndex = this.users[adminIndex].avatarIndex ?? 0;
-      this.users[adminIndex].bio = this.users[adminIndex].bio ?? '';
-      this.users[adminIndex].watchHistory = this.users[adminIndex].watchHistory ?? [];
-      this.users[adminIndex].updatedAt = this.users[adminIndex].updatedAt ?? this.users[adminIndex].createdAt;
     }
 
+    // Seed Regular User if not present
     if (!this.users.some(u => u.email === 'user@kdramabox.com')) {
       const userHash = bcrypt.hashSync('user123', 10);
       this.users.push({
@@ -276,19 +247,18 @@ class Store {
         name: 'Min-ji Kim',
         email: 'user@kdramabox.com',
         passwordHash: userHash,
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user1',
-        avatarIndex: 1,
-        bio: 'Drama enthusiast',
+        avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
         role: 'user',
         isBlocked: false,
         watchlist: ['drama_1', 'drama_3'],
-        watchHistory: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString()
+        createdAt: new Date().toISOString()
       });
     }
+    // No default sample data auto-inserted.
   }
 }
 
 export const store = new Store();
+
+
+

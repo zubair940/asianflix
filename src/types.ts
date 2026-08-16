@@ -3,10 +3,15 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
+  avatarIndex: number;
+  bio: string;
   role: 'user' | 'admin';
   isBlocked: boolean;
   watchlist: string[];
+  watchHistory: WatchHistory[];
   createdAt: string;
+  updatedAt: string;
+  lastLoginAt?: string;
   totalWatchMinutes?: number;
   vipBadge?: string;
   collections?: UserCollection[];
@@ -20,7 +25,7 @@ export interface Drama {
   poster: string;
   backdrop: string;
   genre: string[];
-  category?: string; // e.g. 'K-Drama', 'C-Drama', 'Pakistani Drama', 'Turkish Drama', 'J-Drama', 'Thai Drama'
+  category?: string;
   cast: string[];
   director: string;
   releaseYear: number;
@@ -28,6 +33,7 @@ export interface Drama {
   totalRatingsCount: number;
   views: number;
   createdAt: string;
+  updatedAt: string;
   episodeCount?: number;
 }
 
@@ -39,9 +45,9 @@ export interface Subtitle {
 
 export interface ServerMirror {
   id: string;
-  name: string; // e.g. "Server Alpha (VIP 1080p)", "Server Beta (HLS Mirror)"
+  name: string;
   url: string;
-  quality: string; // "1080p", "720p", "480p", "Auto"
+  quality: string;
   audioType: 'Subbed' | 'English Dub' | 'Hindi Dub' | 'Korean Raw';
   pingMs?: number;
   isPrimary?: boolean;
@@ -57,10 +63,11 @@ export interface Episode {
   subtitles: Subtitle[];
   thumbnail: string;
   createdAt: string;
+  updatedAt: string;
   servers?: ServerMirror[];
-  skipIntroStart?: number; // seconds e.g. 0
-  skipIntroEnd?: number;   // seconds e.g. 85
-  skipOutroStart?: number; // seconds e.g. 3300
+  skipIntroStart?: number;
+  skipIntroEnd?: number;
+  skipOutroStart?: number;
 }
 
 export interface DanmakuComment {
@@ -101,6 +108,7 @@ export interface WatchPartyRoom {
 export interface UserCollection {
   id: string;
   userId: string;
+  userName?: string;
   title: string;
   description: string;
   dramaIds: string[];
@@ -140,13 +148,24 @@ export interface Rating {
   createdAt: string;
 }
 
+export interface WatchHistory {
+  id: string;
+  userId: string;
+  dramaId: string;
+  episodeId: string;
+  progress: number;
+  duration: number;
+  lastWatched: string;
+  completed: boolean;
+}
+
 export interface WatchHistoryItem {
   id: string;
   userId: string;
   dramaId: string;
   episodeId: string;
-  progress: number; // seconds
-  duration: number; // seconds
+  progress: number;
+  duration: number;
   lastWatched: string;
   drama?: Drama;
   episode?: Episode;
@@ -163,11 +182,116 @@ export interface DashboardStats {
   totalEpisodes: number;
   totalUsers: number;
   totalViews: number;
-  topViewed: { title: string; views: number; rating: number }[];
+  totalWatchTimeMinutes: number;
+  activeUsers24h: number;
+  activeUsers7d: number;
+  newUsers24h: number;
+  newUsers7d: number;
+  topViewed: { title: string; views: number; rating: number; id: string }[];
   genreDistribution: { name: string; value: number }[];
   recentUploads: Drama[];
   recentReviews: Rating[];
   totalDanmakuComments?: number;
   activeWatchParties?: number;
   serverBandwidthGb?: number;
+}
+
+export interface RealtimeStats {
+  currentlyWatching: number;
+  completedLastHour: number;
+  uniqueViewersLastHour: number;
+  totalViewsLastHour: number;
+}
+
+export interface DramaAnalytics {
+  dramaId: string;
+  dramaTitle: string;
+  timeRange: string;
+  totalViews: number;
+  uniqueViewers: number;
+  avgWatchTimeMinutes: number;
+  episodeStats: EpisodeAnalytics[];
+  dailyViews: { date: string; views: number }[];
+}
+
+export interface EpisodeAnalytics {
+  episodeId: string;
+  episodeNumber: number;
+  title: string;
+  views: number;
+  uniqueViewers: number;
+  avgProgress: number;
+  completionRate: number;
+}
+
+export interface UserEngagement {
+  timeRange: string;
+  totalActiveUsers: number;
+  avgWatchTimePerUserMinutes: number;
+  avgDramasPerUser: number;
+  userStats: UserEngagementStat[];
+}
+
+export interface UserEngagementStat {
+  userId: string;
+  name: string;
+  email: string;
+  watchCount: number;
+  totalWatchTimeMinutes: number;
+  dramasWatched: number;
+  episodesCompleted: number;
+  lastActive: string | null;
+  isActive: boolean;
+}
+
+export interface ContentPerformance {
+  timeRange: string;
+  dramas: DramaPerformance[];
+}
+
+export interface DramaPerformance {
+  dramaId: string;
+  title: string;
+  poster: string;
+  views: number;
+  uniqueViewers: number;
+  totalWatchTimeMinutes: number;
+  avgWatchTimePerView: number;
+  completionRate: number;
+}
+
+export interface UserRetention {
+  timeRange: string;
+  cohorts: CohortRetention[];
+}
+
+export interface CohortRetention {
+  cohort: string;
+  totalUsers: number;
+  retention: { day: number; percentage: number }[];
+}
+
+export interface AnalyticsEvent {
+  id: string;
+  type: 'view' | 'watch' | 'complete' | 'search' | 'login' | 'register';
+  userId?: string;
+  dramaId?: string;
+  episodeId?: string;
+  metadata?: Record<string, unknown>;
+  timestamp: string;
+  ip?: string;
+  userAgent?: string;
+}
+
+export interface Avatar {
+  index: number;
+  url: string;
+  name: string;
+}
+
+export interface DramaDetailResponse {
+  drama: Drama;
+  episodes: Episode[];
+  reviews: Rating[];
+  related: Drama[];
 }

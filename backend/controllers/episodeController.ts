@@ -103,6 +103,7 @@ export const createEpisode = async (req: Request, res: Response) => {
       subtitles: Array.isArray(subtitles) ? subtitles : [],
       thumbnail: thumbnail || (drama as any).poster,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       ...(Array.isArray(servers) ? { servers } : {}),
       ...(skipIntroStart !== undefined
         ? { skipIntroStart: Number(skipIntroStart) }
@@ -183,6 +184,7 @@ export const updateEpisode = async (req: Request, res: Response) => {
       updates.skipOutroStart = Number(skipOutroStart);
     }
 
+    updates.updatedAt = new Date().toISOString();
     await collection.updateOne(
       { id },
       { $set: updates }
