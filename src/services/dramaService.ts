@@ -9,9 +9,19 @@ export interface DramaDetailResponse {
   related: Drama[];
 }
 
+export interface HomeData {
+  trending: Drama[];
+  latest: Drama[];
+  all: Drama[];
+}
+
 export const dramaService = {
   resolveVideoUrl: (url: string) => {
     return getMediaUrl(url);
+  },
+
+  getHome: () => {
+    return apiRequest<HomeData>('/dramas/home');
   },
 
   getAllDramas: (params?: { q?: string; category?: string; genre?: string; year?: number; minRating?: number; sort?: string }) => {

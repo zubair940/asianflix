@@ -11,8 +11,12 @@ import uploadRoutes from '../backend/routes/uploadRoutes.js';
 import featureRoutes from '../backend/routes/featureRoutes.js';
 import analyticsRoutes from '../backend/routes/analyticsRoutes.js';
 import r2Routes from '../backend/routes/r2Routes.js';
+import { seedUsersToMongo } from '../backend/lib/userStore.js';
 
 const app = express();
+
+// Best-effort sync of seeded users (admin/demo) to MongoDB for persistence.
+seedUsersToMongo();
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));

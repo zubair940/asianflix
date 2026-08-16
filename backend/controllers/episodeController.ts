@@ -1,25 +1,77 @@
 import { Request, Response } from 'express';
-import { getCollection } from '../config/mongodb/mongoStore.js';
-import { Episode } from '../config/store.js';
+import { isMongoHealthy, getCollection, replaceOne, insertOne, deleteOne } from '../config/mongodb/mongoStore.js';
+import { store, Episode } from '../config/store.js';
 
-const episodesCollection = () => getCollection<Episode>('episodes');
+export async function getEpisodesFromMongo(): Promise<Episode[] | null> {
+  if (!(await isMongoHealthy())) return null;
+  try {
+    const collection = await getCollection<Episode>('episodes');
+    const docs = await collection.find({}).toArray();
+    return docs as unknown as Episode[];
+  } catch {
+    return null;
+  }
+}
+
+export async function getEpisodesForDrama(dramaId: string): Promise<Episode[]> {
+  let episodes = await getEpisodesFromMongo();
+  if (!episodes) episodes = [...store.episodes];
+  return episodes.filter(e => e.dramaId === dramaId).sort((a, b) => a.episodeNumber - b.episodeNumber);
+}
+
+export async function deleteEpisodesForDrama(dramaId: string) {
+  store.episodes = store.episodes.filter(e => e.dramaId !== dramaId);
+  store.saveEpisodes();
+  if (await isMongoHealthy()) {
+    try {
+      const collection = await getCollection<Episode>('episodes');
+      await collection.deleteMany({ dramaId });
+    } catch {
+      // ignore
+    }
+  }
+}
+
+async function persistEpisode(episode: Episode) {
+  const idx = store.episodes.findIndex(e => e.id === episode.id);
+  if (idx >= 0) store.episodes[idx] = episode;
+  else store.episodes.push(episode);
+  store.saveEpisodes();
+
+  if (await isMongoHealthy()) {
+    try {
+      await replaceOne<Episode>('episodes', { id: episode.id }, episode);
+    } catch (err) {
+      console.error('Failed to persist episode to MongoDB:', (err as Error).message);
+    }
+  }
+}
+
+async function findEpisodeById(id: string): Promise<Episode | null> {
+  if (await isMongoHealthy()) {
+    try {
+      const collection = await getCollection<Episode>('episodes');
+      const ep = await collection.findOne({ id });
+      if (ep) return ep as unknown as Episode;
+    } catch {
+      // fall through
+    }
+  }
+  return store.episodes.find(e => e.id === id) || null;
+}
 
 export const getAllEpisodes = async (req: Request, res: Response) => {
   try {
     const { dramaId, search } = req.query;
-    const collection = await episodesCollection();
-
-    const filter: Record<string, any> = {};
+    let episodes = await getEpisodesFromMongo();
+    if (!episodes) episodes = [...store.episodes];
 
     if (dramaId) {
-      filter.dramaId = String(dramaId);
+      episodes = episodes.filter(e => e.dramaId === String(dramaId));
     }
-
-    let episodes = await collection.find(filter).toArray();
 
     if (search) {
       const q = String(search).toLowerCase();
-
       episodes = episodes.filter(
         e =>
           e.title.toLowerCase().includes(q) ||
@@ -31,7 +83,6 @@ export const getAllEpisodes = async (req: Request, res: Response) => {
       if (a.dramaId === b.dramaId) {
         return a.episodeNumber - b.episodeNumber;
       }
-
       return a.dramaId.localeCompare(b.dramaId);
     });
 
@@ -46,13 +97,7 @@ export const getAllEpisodes = async (req: Request, res: Response) => {
 export const getEpisodesByDrama = async (req: Request, res: Response) => {
   try {
     const { dramaId } = req.params;
-    const collection = await episodesCollection();
-
-    const episodes = await collection
-      .find({ dramaId })
-      .sort({ episodeNumber: 1 })
-      .toArray();
-
+    const episodes = await getEpisodesForDrama(dramaId);
     return res.json(episodes);
   } catch (error: any) {
     return res.status(500).json({
@@ -84,10 +129,8 @@ export const createEpisode = async (req: Request, res: Response) => {
       });
     }
 
-    const dramasCollection = await getCollection('dramas');
-    const drama = await dramasCollection.findOne({ id: dramaId });
-
-    if (!drama) {
+    const dramaExists = store.dramas.some(d => d.id === dramaId) || (await findDramaInMongo(dramaId));
+    if (!dramaExists) {
       return res.status(404).json({
         message: 'Associated Drama not found'
       });
@@ -101,7 +144,7 @@ export const createEpisode = async (req: Request, res: Response) => {
       duration: duration || '60 mins',
       videoUrl,
       subtitles: Array.isArray(subtitles) ? subtitles : [],
-      thumbnail: thumbnail || (drama as any).poster,
+      thumbnail: thumbnail || store.dramas.find(d => d.id === dramaId)?.poster || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       ...(Array.isArray(servers) ? { servers } : {}),
@@ -116,8 +159,7 @@ export const createEpisode = async (req: Request, res: Response) => {
         : {})
     };
 
-    const collection = await episodesCollection();
-    await collection.insertOne(newEpisode);
+    await persistEpisode(newEpisode);
 
     return res.status(201).json({
       message: 'Episode added successfully',
@@ -133,9 +175,7 @@ export const createEpisode = async (req: Request, res: Response) => {
 export const updateEpisode = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const collection = await episodesCollection();
-
-    const episode = await collection.findOne({ id });
+    const episode = await findEpisodeById(id);
 
     if (!episode) {
       return res.status(404).json({
@@ -157,44 +197,25 @@ export const updateEpisode = async (req: Request, res: Response) => {
       skipOutroStart
     } = req.body;
 
-    const updates: Partial<Episode> = {};
+    if (dramaId) episode.dramaId = dramaId;
+    if (episodeNumber !== undefined) episode.episodeNumber = Number(episodeNumber);
+    if (title) episode.title = title;
+    if (duration) episode.duration = duration;
+    if (videoUrl) episode.videoUrl = videoUrl;
+    if (Array.isArray(subtitles)) episode.subtitles = subtitles;
+    if (thumbnail) episode.thumbnail = thumbnail;
+    if (Array.isArray(servers)) episode.servers = servers;
 
-    if (dramaId) updates.dramaId = dramaId;
+    if (skipIntroStart !== undefined) episode.skipIntroStart = Number(skipIntroStart);
+    if (skipIntroEnd !== undefined) episode.skipIntroEnd = Number(skipIntroEnd);
+    if (skipOutroStart !== undefined) episode.skipOutroStart = Number(skipOutroStart);
 
-    if (episodeNumber !== undefined) {
-      updates.episodeNumber = Number(episodeNumber);
-    }
-
-    if (title) updates.title = title;
-    if (duration) updates.duration = duration;
-    if (videoUrl) updates.videoUrl = videoUrl;
-    if (Array.isArray(subtitles)) updates.subtitles = subtitles;
-    if (thumbnail) updates.thumbnail = thumbnail;
-    if (Array.isArray(servers)) updates.servers = servers;
-
-    if (skipIntroStart !== undefined) {
-      updates.skipIntroStart = Number(skipIntroStart);
-    }
-
-    if (skipIntroEnd !== undefined) {
-      updates.skipIntroEnd = Number(skipIntroEnd);
-    }
-
-    if (skipOutroStart !== undefined) {
-      updates.skipOutroStart = Number(skipOutroStart);
-    }
-
-    updates.updatedAt = new Date().toISOString();
-    await collection.updateOne(
-      { id },
-      { $set: updates }
-    );
-
-    const updatedEpisode = await collection.findOne({ id });
+    episode.updatedAt = new Date().toISOString();
+    await persistEpisode(episode);
 
     return res.json({
       message: 'Episode updated successfully',
-      episode: updatedEpisode
+      episode
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -203,10 +224,7 @@ export const updateEpisode = async (req: Request, res: Response) => {
   }
 };
 
-export const replaceEpisodeVideo = async (
-  req: Request,
-  res: Response
-) => {
+export const replaceEpisodeVideo = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { videoUrl } = req.body;
@@ -217,29 +235,20 @@ export const replaceEpisodeVideo = async (
       });
     }
 
-    const collection = await episodesCollection();
-    const episode = await collection.findOne({ id });
-
+    const episode = await findEpisodeById(id);
     if (!episode) {
       return res.status(404).json({
         message: 'Episode not found'
       });
     }
 
-    await collection.updateOne(
-      { id },
-      {
-        $set: {
-          videoUrl
-        }
-      }
-    );
-
-    const updatedEpisode = await collection.findOne({ id });
+    episode.videoUrl = videoUrl;
+    episode.updatedAt = new Date().toISOString();
+    await persistEpisode(episode);
 
     return res.json({
       message: 'Video replaced successfully',
-      episode: updatedEpisode
+      episode
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -248,10 +257,7 @@ export const replaceEpisodeVideo = async (
   }
 };
 
-export const updateEpisodeSubtitle = async (
-  req: Request,
-  res: Response
-) => {
+export const updateEpisodeSubtitle = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { subtitles } = req.body;
@@ -262,29 +268,20 @@ export const updateEpisodeSubtitle = async (
       });
     }
 
-    const collection = await episodesCollection();
-    const episode = await collection.findOne({ id });
-
+    const episode = await findEpisodeById(id);
     if (!episode) {
       return res.status(404).json({
         message: 'Episode not found'
       });
     }
 
-    await collection.updateOne(
-      { id },
-      {
-        $set: {
-          subtitles
-        }
-      }
-    );
-
-    const updatedEpisode = await collection.findOne({ id });
+    episode.subtitles = subtitles;
+    episode.updatedAt = new Date().toISOString();
+    await persistEpisode(episode);
 
     return res.json({
       message: 'Subtitles updated successfully',
-      episode: updatedEpisode
+      episode
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -296,9 +293,7 @@ export const updateEpisodeSubtitle = async (
 export const deleteEpisode = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const collection = await episodesCollection();
-
-    const episode = await collection.findOne({ id });
+    const episode = await findEpisodeById(id);
 
     if (!episode) {
       return res.status(404).json({
@@ -306,7 +301,19 @@ export const deleteEpisode = async (req: Request, res: Response) => {
       });
     }
 
-    await collection.deleteOne({ id });
+    const idx = store.episodes.findIndex(e => e.id === id);
+    if (idx >= 0) {
+      store.episodes.splice(idx, 1);
+      store.saveEpisodes();
+    }
+    if (await isMongoHealthy()) {
+      try {
+        const collection = await getCollection<Episode>('episodes');
+        await collection.deleteOne({ id });
+      } catch {
+        // ignore
+      }
+    }
 
     return res.json({
       message: 'Episode deleted successfully'
@@ -318,10 +325,7 @@ export const deleteEpisode = async (req: Request, res: Response) => {
   }
 };
 
-export const reorderEpisodes = async (
-  req: Request,
-  res: Response
-) => {
+export const reorderEpisodes = async (req: Request, res: Response) => {
   try {
     const { dramaId, episodeIds } = req.body;
 
@@ -331,26 +335,26 @@ export const reorderEpisodes = async (
       });
     }
 
-    const collection = await episodesCollection();
-
     for (let index = 0; index < episodeIds.length; index++) {
-      await collection.updateOne(
-        {
-          id: episodeIds[index],
-          dramaId
-        },
-        {
-          $set: {
-            episodeNumber: index + 1
-          }
+      const ep = store.episodes.find(e => e.id === episodeIds[index] && e.dramaId === dramaId);
+      if (ep) {
+        ep.episodeNumber = index + 1;
+      }
+      if (await isMongoHealthy()) {
+        try {
+          const collection = await getCollection<Episode>('episodes');
+          await collection.updateOne(
+            { id: episodeIds[index], dramaId },
+            { $set: { episodeNumber: index + 1 } }
+          );
+        } catch {
+          // ignore
         }
-      );
+      }
     }
+    store.saveEpisodes();
 
-    const updatedEpisodes = await collection
-      .find({ dramaId })
-      .sort({ episodeNumber: 1 })
-      .toArray();
+    const updatedEpisodes = await getEpisodesForDrama(dramaId);
 
     return res.json({
       message: 'Episodes reordered successfully',
@@ -362,3 +366,14 @@ export const reorderEpisodes = async (
     });
   }
 };
+
+async function findDramaInMongo(dramaId: string): Promise<boolean> {
+  if (!(await isMongoHealthy())) return false;
+  try {
+    const collection = await getCollection('dramas');
+    const drama = await collection.findOne({ id: dramaId });
+    return Boolean(drama);
+  } catch {
+    return false;
+  }
+}

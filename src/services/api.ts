@@ -61,7 +61,7 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error('SESSION_EXPIRED');
+      throw new Error(data?.message || 'SESSION_EXPIRED');
     }
     throw new Error(data.message || `API error (${response.status})`);
   }

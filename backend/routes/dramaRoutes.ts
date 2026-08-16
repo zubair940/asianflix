@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getAllDramas,
+  getHomeData,
   getTrendingDramas,
   getLatestDramas,
   getDramasByGenre,
@@ -16,6 +17,7 @@ const router = Router();
 
 // Enforce authentication for all drama data access
 router.get('/', getAllDramas);
+router.get('/home', getHomeData);
 router.get('/trending', getTrendingDramas);
 router.get('/latest', getLatestDramas);
 router.get('/genre/:genre', getDramasByGenre);

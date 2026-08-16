@@ -7,7 +7,7 @@ import { LoadingSpinner } from '../components/common/LoadingSpinner.js';
 import { EmptyState } from '../components/common/EmptyState.js';
 import { GENRES } from '../utils/constants.js';
 import { Flame, Sparkles, Clock, Compass, ThumbsUp, Heart, Film } from 'lucide-react';
-import { useDramaList, useTrendingDramas, useLatestDramas } from '../hooks/index.js';
+import { useHomeData } from '../hooks/index.js';
 import { userService } from '../services/userService.js';
 
 export const Home: React.FC = () => {
@@ -17,19 +17,15 @@ export const Home: React.FC = () => {
   const [genreDramas, setGenreDramas] = useState<Drama[]>([]);
   const [historyItems, setHistoryItems] = useState<WatchHistoryItem[]>([]);
 
-  // Optimized data fetching with caching
-  const { data: trendingData, loading: trendingLoading } = useTrendingDramas();
-  const { data: latestData, loading: latestLoading } = useLatestDramas();
-  const { data: allData, loading: allLoading } = useDramaList();
-
-  const loading = trendingLoading || latestLoading || allLoading;
+  // Single combined fetch: trending + latest + all in one serverless call
+  const { data: homeData, loading } = useHomeData();
 
   // Memoized derived data
-  const trending = useMemo(() => trendingData || [], [trendingData]);
-  const latest = useMemo(() => latestData || [], [latestData]);
+  const trending = useMemo(() => homeData?.trending || [], [homeData]);
+  const latest = useMemo(() => homeData?.latest || [], [homeData]);
   const recommended = useMemo(
-    () => (allData?.dramas || []).filter((d) => d.averageRating >= 4.8),
-    [allData]
+    () => (homeData?.all || []).filter((d) => d.averageRating >= 4.8),
+    [homeData]
   );
 
   const heroDrama = useMemo(() => trending[0] || latest[0], [trending, latest]);

@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { store, User } from '../config/store.js';
 import { AuthRequest } from '../middleware/auth.js';
+import { findUserByEmail, findUserById, upsertUser, seedUsersToMongo } from '../lib/userStore.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'kdramabox_jwt_secret_key_2026_super_secure';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'kdramabox_refresh_secret_key_2026_super_secure';
@@ -64,7 +65,7 @@ export const register = async (req: Request, res: Response) => {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    const existing = store.users.find(u => u.email.toLowerCase() === cleanEmail);
+    const existing = await findUserByEmail(cleanEmail);
     if (existing) {
       return res.status(400).json({ message: 'An account with this email already exists' });
     }
@@ -90,8 +91,7 @@ export const register = async (req: Request, res: Response) => {
       lastLoginAt: new Date().toISOString()
     };
 
-    store.users.push(newUser);
-    store.saveUsers();
+    await upsertUser(newUser);
 
     const { accessToken, refreshToken } = generateTokens(newUser);
     setAuthCookies(res, accessToken, refreshToken);
@@ -117,7 +117,7 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const user = store.users.find(u => u.email.toLowerCase() === cleanEmail);
+    const user = await findUserByEmail(cleanEmail);
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
@@ -138,7 +138,7 @@ export const login = async (req: Request, res: Response) => {
 
     user.lastLoginAt = new Date().toISOString();
     user.updatedAt = new Date().toISOString();
-    store.saveUsers();
+    await upsertUser(user);
 
     const { accessToken, refreshToken } = generateTokens(user);
     setAuthCookies(res, accessToken, refreshToken);
@@ -177,7 +177,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Invalid token type' });
     }
 
-    const user = store.users.find(u => u.id === decoded.id);
+    const user = await findUserById(decoded.id);
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
     }
@@ -214,23 +214,23 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
     if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
 
     const { name, bio, avatarIndex } = req.body;
-    const userIndex = store.users.findIndex(u => u.id === req.user!.id);
+    const user = await findUserById(req.user.id);
 
-    if (userIndex === -1) {
+    if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (name) store.users[userIndex].name = name.trim();
-    if (bio !== undefined) store.users[userIndex].bio = bio.trim();
+    if (name) user.name = name.trim();
+    if (bio !== undefined) user.bio = bio.trim();
     if (avatarIndex !== undefined && Number.isInteger(avatarIndex) && avatarIndex >= 0 && avatarIndex < 20) {
-      store.users[userIndex].avatarIndex = avatarIndex;
-      store.users[userIndex].avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${store.users[userIndex].id}_${avatarIndex}`;
+      user.avatarIndex = avatarIndex;
+      user.avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}_${avatarIndex}`;
     }
 
-    store.users[userIndex].updatedAt = new Date().toISOString();
-    store.saveUsers();
+    user.updatedAt = new Date().toISOString();
+    await upsertUser(user);
 
-    const { passwordHash: _, ...userData } = store.users[userIndex];
+    const { passwordHash: _, ...userData } = user;
     return res.json({
       message: 'Profile updated successfully',
       user: userData
@@ -259,7 +259,7 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'New password must be at least 6 characters' });
     }
 
-    const user = store.users.find(u => u.id === req.user!.id);
+    const user = await findUserById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const isMatch = bcrypt.compareSync(currentPassword, user.passwordHash);
@@ -269,7 +269,7 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
 
     user.passwordHash = bcrypt.hashSync(newPassword, 10);
     user.updatedAt = new Date().toISOString();
-    store.saveUsers();
+    await upsertUser(user);
 
     return res.json({ message: 'Password changed successfully' });
   } catch (error: unknown) {

@@ -1,7 +1,30 @@
 import { getDb } from './connection.js';
 
+let lastCheck = 0;
+let mongoHealthy = false;
+
+export async function isMongoHealthy(): Promise<boolean> {
+  const now = Date.now();
+  if (now - lastCheck < 60_000) return mongoHealthy;
+
+  const db = await getDb();
+  if (!db) {
+    mongoHealthy = false;
+  } else {
+    try {
+      await db.command({ ping: 1 });
+      mongoHealthy = true;
+    } catch {
+      mongoHealthy = false;
+    }
+  }
+  lastCheck = now;
+  return mongoHealthy;
+}
+
 export async function getCollection<T = any>(name: string) {
   const db = await getDb();
+  if (!db) throw new Error('MongoDB not available');
   return db.collection<T>(name);
 }
 

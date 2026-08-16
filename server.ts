@@ -16,8 +16,12 @@ import uploadRoutes from './backend/routes/uploadRoutes.js';
 import featureRoutes from './backend/routes/featureRoutes.js';
 import analyticsRoutes from './backend/routes/analyticsRoutes.js';
 import r2Routes from './backend/routes/r2Routes.js';
+import { seedUsersToMongo } from './backend/lib/userStore.js';
 
 async function startServer() {
+  // Best-effort sync of seeded users (admin/demo) to MongoDB for persistence.
+  seedUsersToMongo();
+
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
   const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';

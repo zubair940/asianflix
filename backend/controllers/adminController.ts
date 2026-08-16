@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { store } from '../config/store.js';
+import { getAllUsers as fetchAllUsers, findUserById, upsertUser, removeUser } from '../lib/userStore.js';
 
 export const getDashboardStats = (req: Request, res: Response) => {
   const totalDramas = store.dramas.length;
@@ -41,9 +42,15 @@ export const getDashboardStats = (req: Request, res: Response) => {
   });
 };
 
-export const getAllUsers = (req: Request, res: Response) => {
-  const users = store.users.map(({ passwordHash: _, ...u }) => {
-    // Calculate user total watch time from watch history
+export const getAllUsers = async (req: Request, res: Response) => {
+  const users = await getAllUsersFromStore();
+
+  return res.json(users);
+};
+
+async function getAllUsersFromStore() {
+  const users = await fetchAllUsers();
+  return users.map(({ passwordHash: _, ...u }) => {
     const userHistory = store.history.filter(h => h.userId === u.id);
     const watchSeconds = userHistory.reduce((acc, h) => acc + (h.progress || 0), 0);
     const watchMinutes = Math.round(watchSeconds / 60);
@@ -53,13 +60,11 @@ export const getAllUsers = (req: Request, res: Response) => {
       totalWatchMinutes: watchMinutes
     };
   });
+}
 
-  return res.json(users);
-};
-
-export const toggleBlockUser = (req: Request, res: Response) => {
+export const toggleBlockUser = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const user = store.users.find(u => u.id === id);
+  const user = await findUserById(id);
 
   if (!user) {
     return res.status(404).json({ message: 'User not found' });
@@ -70,7 +75,7 @@ export const toggleBlockUser = (req: Request, res: Response) => {
   }
 
   user.isBlocked = !user.isBlocked;
-  store.saveUsers();
+  await upsertUser(user);
 
   return res.json({
     message: user.isBlocked ? 'User blocked successfully' : 'User unblocked successfully',
@@ -78,24 +83,23 @@ export const toggleBlockUser = (req: Request, res: Response) => {
   });
 };
 
-export const deleteUser = (req: Request, res: Response) => {
+export const deleteUser = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const index = store.users.findIndex(u => u.id === id);
+  const user = await findUserById(id);
 
-  if (index === -1) {
+  if (!user) {
     return res.status(404).json({ message: 'User not found' });
   }
 
-  if (store.users[index].role === 'admin') {
+  if (user.role === 'admin') {
     return res.status(400).json({ message: 'Cannot delete admin accounts' });
   }
 
-  store.users.splice(index, 1);
+  await removeUser(id);
   // Clean up user history and ratings
   store.history = store.history.filter(h => h.userId !== id);
   store.ratings = store.ratings.filter(r => r.userId !== id);
 
-  store.saveUsers();
   store.saveHistory();
   store.saveRatings();
 

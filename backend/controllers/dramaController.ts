@@ -1,20 +1,59 @@
 import { Request, Response } from 'express';
 import { store, Drama } from '../config/store.js';
-import { getCollection } from '../config/mongodb/mongoStore.js';
+import { isMongoHealthy, getCollection, replaceOne, insertOne, deleteOne } from '../config/mongodb/mongoStore.js';
+import { getEpisodesForDrama, deleteEpisodesForDrama } from './episodeController.js';
 
-const dramasCollection = () => getCollection<Drama>('dramas');
+async function getDramasFromMongo(): Promise<Drama[] | null> {
+  if (!(await isMongoHealthy())) return null;
+  try {
+    const collection = await getCollection<Drama>('dramas');
+    const docs = await collection.find({}).toArray();
+    return docs as unknown as Drama[];
+  } catch {
+    return null;
+  }
+}
+
+async function persistDrama(drama: Drama) {
+  const idx = store.dramas.findIndex(d => d.id === drama.id);
+  if (idx >= 0) store.dramas[idx] = drama;
+  else store.dramas.push(drama);
+  store.saveDramas();
+
+  if (await isMongoHealthy()) {
+    try {
+      await replaceOne<Drama>('dramas', { id: drama.id }, drama);
+    } catch (err) {
+      console.error('Failed to persist drama to MongoDB:', (err as Error).message);
+    }
+  }
+}
+
+export const getHomeData = async (req: Request, res: Response) => {
+  try {
+    let dramas = await getDramasFromMongo();
+    if (!dramas) dramas = [...store.dramas];
+
+    const trending = [...dramas].sort((a, b) => b.views - a.views).slice(0, 10);
+    const latest = [...dramas].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10);
+
+    return res.json({ trending, latest, all: dramas });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message || 'Error fetching home data' });
+  }
+};
 
 export const getAllDramas = async (req: Request, res: Response) => {
   try {
-    const collection = await dramasCollection();
+    let results = await getDramasFromMongo();
+    if (!results) results = [...store.dramas];
+
     const q = req.query.q as string;
     const category = req.query.category as string;
     const genre = req.query.genre as string;
     const year = req.query.year ? parseInt(req.query.year as string) : null;
     const minRating = req.query.minRating ? parseFloat(req.query.minRating as string) : null;
     const sort = req.query.sort as string;
-
-    let results = await collection.find({}).toArray();
 
     if (q) {
       const term = q.toLowerCase();
@@ -37,38 +76,83 @@ export const getAllDramas = async (req: Request, res: Response) => {
 };
 
 export const getTrendingDramas = async (req: Request, res: Response) => {
-  const collection = await dramasCollection();
-  const results = await collection.find({}).sort({ views: -1 }).limit(10).toArray();
-  return res.json(results);
+  try {
+    let results = await getDramasFromMongo();
+    if (!results) results = [...store.dramas];
+    results = results.sort((a, b) => b.views - a.views).slice(0, 10);
+    return res.json(results);
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message || 'Error fetching trending dramas' });
+  }
 };
 
 export const getLatestDramas = async (req: Request, res: Response) => {
-  const collection = await dramasCollection();
-  const results = await collection.find({}).sort({ createdAt: -1 }).limit(10).toArray();
-  return res.json(results);
+  try {
+    let results = await getDramasFromMongo();
+    if (!results) results = [...store.dramas];
+    results = results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10);
+    return res.json(results);
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message || 'Error fetching latest dramas' });
+  }
 };
 
 export const getDramasByGenre = async (req: Request, res: Response) => {
-  const collection = await dramasCollection();
-  const results = await collection.find({ genre: { $regex: `^${req.params.genre}$`, $options: 'i' } }).toArray();
-  return res.json(results);
+  try {
+    const genre = (req.params.genre || '').toLowerCase();
+    let results = await getDramasFromMongo();
+    if (!results) results = [...store.dramas];
+    results = results.filter(d => d.genre.some(g => g.toLowerCase() === genre));
+    return res.json(results);
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message || 'Error fetching dramas by genre' });
+  }
 };
 
 export const getDramaById = async (req: Request, res: Response) => {
   try {
-    const collection = await dramasCollection();
-    const drama = await collection.findOne({ id: req.params.id });
+    let drama = null;
+    if (await isMongoHealthy()) {
+      try {
+        const collection = await getCollection<Drama>('dramas');
+        drama = await collection.findOne({ id: req.params.id });
+      } catch {
+        drama = null;
+      }
+    }
+    if (!drama) {
+      drama = store.dramas.find(d => d.id === req.params.id) || null;
+    }
     if (!drama) return res.status(404).json({ message: 'Drama not found' });
 
-    await collection.updateOne({ id: req.params.id }, { $inc: { views: 1 } });
     drama.views += 1;
+    const dramaCopy = { ...drama };
+    if (await isMongoHealthy()) {
+      try {
+        const collection = await getCollection<Drama>('dramas');
+        await collection.updateOne({ id: req.params.id }, { $inc: { views: 1 } });
+        dramaCopy.views = drama.views;
+      } catch {
+        // ignore
+      }
+    }
+    const idx = store.dramas.findIndex(d => d.id === req.params.id);
+    if (idx >= 0) {
+      store.dramas[idx].views = drama.views;
+      store.saveDramas();
+    }
 
-    const episodes = (await (await import('../config/mongodb/mongoStore.js')).getCollection<any>('episodes')).find({ dramaId: req.params.id }).sort({ episodeNumber: 1 }).toArray();
+    const episodes = await getEpisodesForDrama(req.params.id);
     const reviews = store.ratings.filter(r => r.dramaId === req.params.id).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const primaryGenre = drama.genre[0];
-    const related = await collection.find({ id: { $ne: req.params.id }, genre: primaryGenre }).limit(6).toArray();
+    let related: Drama[] = [];
+    if (primaryGenre) {
+      let all = await getDramasFromMongo();
+      if (!all) all = [...store.dramas];
+      related = all.filter(d => d.id !== req.params.id && d.genre.includes(primaryGenre)).slice(0, 6);
+    }
 
-    return res.json({ drama, episodes: await episodes, reviews, related });
+    return res.json({ drama, episodes, reviews, related });
   } catch (error: any) {
     return res.status(500).json({ message: error.message || 'Error fetching drama' });
   }
@@ -89,7 +173,7 @@ export const createDrama = async (req: Request, res: Response) => {
       averageRating: 5.0, totalRatingsCount: 1, views: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
     };
 
-    await (await dramasCollection()).insertOne(newDrama);
+    await persistDrama(newDrama);
     return res.status(201).json({ message: 'Drama created successfully', drama: newDrama });
   } catch (error: any) {
     return res.status(500).json({ message: error.message || 'Error creating drama' });
@@ -98,8 +182,18 @@ export const createDrama = async (req: Request, res: Response) => {
 
 export const updateDrama = async (req: Request, res: Response) => {
   try {
-    const collection = await dramasCollection();
-    const drama = await collection.findOne({ id: req.params.id });
+    let drama = null;
+    if (await isMongoHealthy()) {
+      try {
+        const collection = await getCollection<Drama>('dramas');
+        drama = await collection.findOne({ id: req.params.id });
+      } catch {
+        drama = null;
+      }
+    }
+    if (!drama) {
+      drama = store.dramas.find(d => d.id === req.params.id) || null;
+    }
     if (!drama) return res.status(404).json({ message: 'Drama not found' });
     const { title, titleKR, description, poster, backdrop, genre, category, cast, director, releaseYear } = req.body;
     if (title) drama.title = title;
@@ -113,7 +207,7 @@ export const updateDrama = async (req: Request, res: Response) => {
     if (director) drama.director = director;
     if (releaseYear) drama.releaseYear = Number(releaseYear);
     drama.updatedAt = new Date().toISOString();
-    await collection.replaceOne({ id: req.params.id }, drama);
+    await persistDrama(drama);
     return res.json({ message: 'Drama updated successfully', drama });
   } catch (error: any) {
     return res.status(500).json({ message: error.message || 'Error updating drama' });
@@ -122,11 +216,18 @@ export const updateDrama = async (req: Request, res: Response) => {
 
 export const deleteDrama = async (req: Request, res: Response) => {
   try {
-    const collection = await dramasCollection();
-    const result = await collection.deleteOne({ id: req.params.id });
-    if (!result.deletedCount) return res.status(404).json({ message: 'Drama not found' });
-    const episodes = await getCollection<any>('episodes');
-    await episodes.deleteMany({ dramaId: req.params.id });
+    const idx = store.dramas.findIndex(d => d.id === req.params.id);
+    if (idx === -1 && await isMongoHealthy()) {
+      const collection = await getCollection<Drama>('dramas');
+      const result = await collection.deleteOne({ id: req.params.id });
+      if (!result.deletedCount) return res.status(404).json({ message: 'Drama not found' });
+    } else if (idx === -1) {
+      return res.status(404).json({ message: 'Drama not found' });
+    } else {
+      store.dramas.splice(idx, 1);
+      store.saveDramas();
+    }
+    await deleteEpisodesForDrama(req.params.id);
     store.ratings = store.ratings.filter(r => r.dramaId !== req.params.id);
     store.saveRatings();
     return res.json({ message: 'Drama and related content deleted successfully' });

@@ -1,17 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
+import bcrypt from 'bcryptjs';
 import { AuthRequest } from '../middleware/auth.js';
 import { store, Rating, WatchHistory } from '../config/store.js';
+import { findUserById, upsertUser, removeUser } from '../lib/userStore.js';
 
-export const toggleWatchlist = (req: AuthRequest, res: Response) => {
+export const toggleWatchlist = async (req: AuthRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ message: 'Authentication required' });
 
   const { dramaId } = req.body;
   if (!dramaId) return res.status(400).json({ message: 'Drama ID is required' });
 
-  const userIndex = store.users.findIndex(u => u.id === req.user!.id);
-  if (userIndex === -1) return res.status(404).json({ message: 'User not found' });
+  const user = await findUserById(req.user.id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
 
-  const user = store.users[userIndex];
   const existsIndex = user.watchlist.indexOf(dramaId);
 
   let added = false;
@@ -23,7 +24,7 @@ export const toggleWatchlist = (req: AuthRequest, res: Response) => {
   }
 
   user.updatedAt = new Date().toISOString();
-  store.saveUsers();
+  await upsertUser(user);
 
   return res.json({
     message: added ? 'Added to Watchlist' : 'Removed from Watchlist',
@@ -32,17 +33,17 @@ export const toggleWatchlist = (req: AuthRequest, res: Response) => {
   });
 };
 
-export const getWatchlist = (req: AuthRequest, res: Response) => {
+export const getWatchlist = async (req: AuthRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ message: 'Authentication required' });
 
-  const user = store.users.find(u => u.id === req.user!.id);
+  const user = await findUserById(req.user.id);
   if (!user) return res.status(404).json({ message: 'User not found' });
 
   const dramas = store.dramas.filter(d => user.watchlist.includes(d.id));
   return res.json(dramas);
 };
 
-export const updateWatchHistory = (req: AuthRequest, res: Response) => {
+export const updateWatchHistory = async (req: AuthRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ message: 'Authentication required' });
 
   const { dramaId, episodeId, progress, duration } = req.body;
@@ -77,13 +78,13 @@ export const updateWatchHistory = (req: AuthRequest, res: Response) => {
     store.history.push(newHistory);
   }
 
-  const userIndex = store.users.findIndex(u => u.id === req.user!.id);
-  if (userIndex !== -1) {
-    store.users[userIndex].updatedAt = now;
+  const user = await findUserById(req.user.id);
+  if (user) {
+    user.updatedAt = now;
+    await upsertUser(user);
   }
 
   store.saveHistory();
-  store.saveUsers();
 
   return res.json({ message: 'History updated' });
 };
@@ -125,7 +126,7 @@ export const clearWatchHistory = (req: AuthRequest, res: Response) => {
   return res.json({ message: dramaId ? 'Drama history cleared' : 'All watch history cleared' });
 };
 
-export const addRating = (req: AuthRequest, res: Response) => {
+export const addRating = async (req: AuthRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ message: 'Authentication required' });
 
   const { dramaId, rating, review } = req.body;
@@ -204,28 +205,28 @@ export const getAvailableAvatars = (req: Request, res: Response, next: NextFunct
   }
 };
 
-export const updateProfile = (req: AuthRequest, res: Response) => {
+export const updateProfile = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
 
     const { name, bio, avatarIndex } = req.body;
-    const userIndex = store.users.findIndex(u => u.id === req.user!.id);
+    const user = await findUserById(req.user.id);
 
-    if (userIndex === -1) {
+    if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (name) store.users[userIndex].name = name.trim();
-    if (bio !== undefined) store.users[userIndex].bio = bio.trim();
+    if (name) user.name = name.trim();
+    if (bio !== undefined) user.bio = bio.trim();
     if (avatarIndex !== undefined && Number.isInteger(avatarIndex) && avatarIndex >= 0 && avatarIndex < 20) {
-      store.users[userIndex].avatarIndex = avatarIndex;
-      store.users[userIndex].avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${store.users[userIndex].id}_${avatarIndex}`;
+      user.avatarIndex = avatarIndex;
+      user.avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}_${avatarIndex}`;
     }
 
-    store.users[userIndex].updatedAt = new Date().toISOString();
-    store.saveUsers();
+    user.updatedAt = new Date().toISOString();
+    await upsertUser(user);
 
-    const { passwordHash: _, ...userData } = store.users[userIndex];
+    const { passwordHash: _, ...userData } = user;
     return res.json({
       message: 'Profile updated successfully',
       user: userData
@@ -236,7 +237,7 @@ export const updateProfile = (req: AuthRequest, res: Response) => {
   }
 };
 
-export const changePassword = (req: AuthRequest, res: Response) => {
+export const changePassword = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
 
@@ -254,10 +255,9 @@ export const changePassword = (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'New password must be at least 6 characters' });
     }
 
-    const user = store.users.find(u => u.id === req.user!.id);
+    const user = await findUserById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const bcrypt = require('bcryptjs');
     const isMatch = bcrypt.compareSync(currentPassword, user.passwordHash);
     if (!isMatch) {
       return res.status(401).json({ message: 'Current password is incorrect' });
@@ -265,7 +265,7 @@ export const changePassword = (req: AuthRequest, res: Response) => {
 
     user.passwordHash = bcrypt.hashSync(newPassword, 10);
     user.updatedAt = new Date().toISOString();
-    store.saveUsers();
+    await upsertUser(user);
 
     return res.json({ message: 'Password changed successfully' });
   } catch (error: unknown) {
@@ -274,7 +274,7 @@ export const changePassword = (req: AuthRequest, res: Response) => {
   }
 };
 
-export const deleteAccount = (req: AuthRequest, res: Response) => {
+export const deleteAccount = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
 
@@ -283,22 +283,19 @@ export const deleteAccount = (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'Password confirmation required' });
     }
 
-    const user = store.users.find(u => u.id === req.user!.id);
+    const user = await findUserById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const bcrypt = require('bcryptjs');
     const isMatch = bcrypt.compareSync(password, user.passwordHash);
     if (!isMatch) {
       return res.status(401).json({ message: 'Password is incorrect' });
     }
 
-    const userIndex = store.users.findIndex(u => u.id === req.user!.id);
-    store.users.splice(userIndex, 1);
+    await removeUser(req.user.id);
     
     store.history = store.history.filter(h => h.userId !== req.user!.id);
     store.ratings = store.ratings.filter(r => r.userId !== req.user!.id);
     
-    store.saveUsers();
     store.saveHistory();
     store.saveRatings();
 

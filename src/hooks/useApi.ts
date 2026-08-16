@@ -128,6 +128,13 @@ export function useLatestDramas() {
   return useApi<Drama[]>(() => api.get('/dramas/latest'), { cacheKey: 'dramas:latest' });
 }
 
+export function useHomeData() {
+  return useApi<{ trending: Drama[]; latest: Drama[]; all: Drama[] }>(
+    () => api.get('/dramas/home'),
+    { cacheKey: 'dramas:home' }
+  );
+}
+
 export function useAuthMe() {
   return useApi<{ user: User }>(() => api.get('/auth/me'), { cacheKey: 'auth:me' });
 }

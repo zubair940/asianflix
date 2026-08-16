@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { store, User } from '../config/store.js';
+import { findUserById } from '../lib/userStore.js';
 
 export interface AuthRequest extends Request {
   user?: User;
@@ -17,14 +18,18 @@ function extractToken(req: AuthRequest): string | null {
   return cookieToken || null;
 }
 
-export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const token = extractToken(req);
   if (!token) {
     return res.status(401).json({ message: 'Authentication token required' });
   }
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string };
-    const user = store.users.find(u => u.id === decoded.id);
+
+    let user = store.users.find(u => u.id === decoded.id);
+    if (!user) {
+      user = await findUserById(decoded.id);
+    }
 
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
@@ -41,12 +46,15 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
   }
 };
 
-export const optionalAuthMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const optionalAuthMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const token = extractToken(req);
   if (token) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
-      const user = store.users.find(u => u.id === decoded.id);
+      let user = store.users.find(u => u.id === decoded.id);
+      if (!user) {
+        user = await findUserById(decoded.id);
+      }
       if (user && !user.isBlocked) {
         req.user = user;
       }
