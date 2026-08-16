@@ -1,22 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { DashboardStats, Drama } from '../../types.js';
 import { adminService } from '../../services/adminService.js';
 import { dramaService } from '../../services/dramaService.js';
 import { useToast } from '../../context/ToastContext.js';
 import { LoadingSpinner } from '../common/LoadingSpinner.js';
 import { EmptyState } from '../common/EmptyState.js';
-import { AddDrama } from './AddDrama.js';
-import { AddEpisode } from './AddEpisode.js';
-import { EditDramaModal } from './EditDramaModal.js';
-import { ReorderEpisodesModal } from './ReorderEpisodesModal.js';
-import { ManageUsers } from './ManageUsers.js';
-import { EpisodeManagement } from './EpisodeManagement.js';
-import { DanmakuModerationTab } from './DanmakuModerationTab.js';
-import { SystemAnalyticsDashboard } from './SystemAnalyticsDashboard.js';
-import { ScheduledPublishing } from './ScheduledPublishing.js';
-import { AdminActivityLog } from './AdminActivityLog.js';
-import { EpisodeTemplates } from './EpisodeTemplates.js';
-import { AdminAnalytics } from './AdminAnalytics.js';
 import {
   Film,
   Users,
@@ -40,6 +28,25 @@ import {
   LayoutDashboard,
   BarChart2
 } from 'lucide-react';
+
+const AddDrama = lazy(() => import('./AddDrama.js').then(m => ({ default: m.AddDrama })));
+const AddEpisode = lazy(() => import('./AddEpisode.js').then(m => ({ default: m.AddEpisode })));
+const EditDramaModal = lazy(() => import('./EditDramaModal.js').then(m => ({ default: m.EditDramaModal })));
+const ReorderEpisodesModal = lazy(() => import('./ReorderEpisodesModal.js').then(m => ({ default: m.ReorderEpisodesModal })));
+const ManageUsers = lazy(() => import('./ManageUsers.js').then(m => ({ default: m.ManageUsers })));
+const EpisodeManagement = lazy(() => import('./EpisodeManagement.js').then(m => ({ default: m.EpisodeManagement })));
+const DanmakuModerationTab = lazy(() => import('./DanmakuModerationTab.js').then(m => ({ default: m.DanmakuModerationTab })));
+const SystemAnalyticsDashboard = lazy(() => import('./SystemAnalyticsDashboard.js').then(m => ({ default: m.SystemAnalyticsDashboard })));
+const ScheduledPublishing = lazy(() => import('./ScheduledPublishing.js').then(m => ({ default: m.ScheduledPublishing })));
+const AdminActivityLog = lazy(() => import('./AdminActivityLog.js').then(m => ({ default: m.AdminActivityLog })));
+const EpisodeTemplates = lazy(() => import('./EpisodeTemplates.js').then(m => ({ default: m.EpisodeTemplates })));
+const AdminAnalytics = lazy(() => import('./AdminAnalytics.js').then(m => ({ default: m.AdminAnalytics })));
+
+const TabLoader = () => (
+  <div className="min-h-[40vh] flex items-center justify-center">
+    <LoadingSpinner label="Loading..." />
+  </div>
+);
 
 import { useLocation } from 'react-router-dom';
 
@@ -121,33 +128,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
     <div className="min-h-screen bg-slate-950 text-slate-100 pt-24 pb-16">
       {/* Edit Drama Modal */}
       {editingDrama && (
-        <EditDramaModal
-          isOpen={!!editingDrama}
-          drama={editingDrama}
-          onSuccess={() => {
-            setEditingDrama(null);
-            loadDashboardData();
-          }}
-          onCancel={() => setEditingDrama(null)}
-        />
+        <Suspense fallback={<TabLoader />}>
+          <EditDramaModal
+            isOpen={!!editingDrama}
+            drama={editingDrama}
+            onSuccess={() => {
+              setEditingDrama(null);
+              loadDashboardData();
+            }}
+            onCancel={() => setEditingDrama(null)}
+          />
+        </Suspense>
       )}
 
       {/* Reorder Episodes Modal */}
       {showReorderModal && (
-        <ReorderEpisodesModal
-          isOpen={showReorderModal}
-          dramaId={reorderDramaId}
-          dramas={dramas}
-          onSuccess={() => {
-            setShowReorderModal(false);
-            setReorderDramaId(undefined);
-            loadDashboardData();
-          }}
-          onCancel={() => {
-            setShowReorderModal(false);
-            setReorderDramaId(undefined);
-          }}
-        />
+        <Suspense fallback={<TabLoader />}>
+          <ReorderEpisodesModal
+            isOpen={showReorderModal}
+            dramaId={reorderDramaId}
+            dramas={dramas}
+            onSuccess={() => {
+              setShowReorderModal(false);
+              setReorderDramaId(undefined);
+              loadDashboardData();
+            }}
+            onCancel={() => {
+              setShowReorderModal(false);
+              setReorderDramaId(undefined);
+            }}
+          />
+        </Suspense>
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
@@ -187,25 +198,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
 
         {/* Modal overlays for forms */}
         {showAddDrama && (
-          <AddDrama
-            onSuccess={() => {
-              setShowAddDrama(false);
-              loadDashboardData();
-            }}
-            onCancel={() => setShowAddDrama(false)}
-          />
+          <Suspense fallback={<TabLoader />}>
+            <AddDrama
+              onSuccess={() => {
+                setShowAddDrama(false);
+                loadDashboardData();
+              }}
+              onCancel={() => setShowAddDrama(false)}
+            />
+          </Suspense>
         )}
 
         {showAddEpisode && (
-          <AddEpisode
-            dramas={dramas}
-            preselectedDramaId={selectedDramaForEp}
-            onSuccess={() => {
-              setShowAddEpisode(false);
-              loadDashboardData();
-            }}
-            onCancel={() => setShowAddEpisode(false)}
-          />
+          <Suspense fallback={<TabLoader />}>
+            <AddEpisode
+              dramas={dramas}
+              preselectedDramaId={selectedDramaForEp}
+              onSuccess={() => {
+                setShowAddEpisode(false);
+                loadDashboardData();
+              }}
+              onCancel={() => setShowAddEpisode(false)}
+            />
+          </Suspense>
         )}
 
         {/* Dashboard Stat Cards Grid */}
@@ -427,28 +442,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
         )}
 
         {/* Tab Content 3: Danmaku Moderation */}
-        {activeTab === 'danmaku' && <DanmakuModerationTab />}
+        {activeTab === 'danmaku' && (
+          <Suspense fallback={<TabLoader />}>
+            <DanmakuModerationTab />
+          </Suspense>
+        )}
 
         {/* Tab Content 4: System Cluster Analytics */}
-        {activeTab === 'cluster' && stats && <SystemAnalyticsDashboard stats={stats} />}
+        {activeTab === 'cluster' && stats && (
+          <Suspense fallback={<TabLoader />}>
+            <SystemAnalyticsDashboard stats={stats} />
+          </Suspense>
+        )}
 
         {/* Tab Content 5: Scheduled Publishing */}
         {activeTab === 'schedule' && (
-          <ScheduledPublishing
-            dramas={dramas.map(d => ({ id: d.id, title: d.title }))}
-            episodes={[]} // Would be populated from episode data
-            onClose={() => setActiveTab('stats')}
-          />
+          <Suspense fallback={<TabLoader />}>
+            <ScheduledPublishing
+              dramas={dramas.map(d => ({ id: d.id, title: d.title }))}
+              episodes={[]} // Would be populated from episode data
+              onClose={() => setActiveTab('stats')}
+            />
+          </Suspense>
         )}
 
         {/* Tab Content 6: Episode Templates */}
         {activeTab === 'templates' && (
-          <EpisodeTemplates onClose={() => setActiveTab('stats')} />
+          <Suspense fallback={<TabLoader />}>
+            <EpisodeTemplates onClose={() => setActiveTab('stats')} />
+          </Suspense>
         )}
 
         {/* Tab Content 7: Admin Activity Log */}
         {activeTab === 'activity' && (
-          <AdminActivityLog onClose={() => setActiveTab('stats')} />
+          <Suspense fallback={<TabLoader />}>
+            <AdminActivityLog onClose={() => setActiveTab('stats')} />
+          </Suspense>
         )}
 
         {/* Tab Content 8: Dramas Management List */}
@@ -541,7 +570,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
 
         {/* Tab Content 6: Episode Management System */}
         {activeTab === 'episodes' && (
-          <EpisodeManagement onOpenAddEpisode={() => setShowAddEpisode(true)} />
+          <Suspense fallback={<TabLoader />}>
+            <EpisodeManagement onOpenAddEpisode={() => setShowAddEpisode(true)} />
+          </Suspense>
         )}
 
         {/* Tab Content 7: Reorder Episodes Standalone view */}
@@ -562,7 +593,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
         )}
 
         {/* Tab Content 8: Users Management */}
-        {activeTab === 'users' && <ManageUsers />}
+        {activeTab === 'users' && (
+          <Suspense fallback={<TabLoader />}>
+            <ManageUsers />
+          </Suspense>
+        )}
 
         {/* Tab Content 9: Reviews Moderation */}
         {activeTab === 'reviews' && (
@@ -591,7 +626,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
 
         {/* Tab Content 10: Analytics */}
         {activeTab === 'analytics' && (
-          <AdminAnalytics />
+          <Suspense fallback={<TabLoader />}>
+            <AdminAnalytics />
+          </Suspense>
         )}
       </div>
     </div>

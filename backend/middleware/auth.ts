@@ -8,13 +8,20 @@ export interface AuthRequest extends Request {
 
 const JWT_SECRET = process.env.JWT_SECRET || 'kdramabox_jwt_secret_key_2026_super_secure';
 
-export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
+function extractToken(req: AuthRequest): string | null {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.split(' ')[1];
+  }
+  const cookieToken = (req as Request & { cookies?: Record<string, string> }).cookies?.access_token;
+  return cookieToken || null;
+}
+
+export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
+  const token = extractToken(req);
+  if (!token) {
     return res.status(401).json({ message: 'Authentication token required' });
   }
-
-  const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string };
     const user = store.users.find(u => u.id === decoded.id);
@@ -35,9 +42,8 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
 };
 
 export const optionalAuthMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.split(' ')[1];
+  const token = extractToken(req);
+  if (token) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
       const user = store.users.find(u => u.id === decoded.id);

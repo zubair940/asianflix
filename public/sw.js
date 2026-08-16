@@ -1,8 +1,8 @@
 // Service Worker for PWA Caching & Performance
-const CACHE_NAME = 'asianflix-v2';
-const STATIC_CACHE = 'asianflix-static-v2';
-const DYNAMIC_CACHE = 'asianflix-dynamic-v2';
-const IMAGE_CACHE = 'asianflix-images-v2';
+const CACHE_NAME = 'asianflix-v3';
+const STATIC_CACHE = 'asianflix-static-v3';
+const DYNAMIC_CACHE = 'asianflix-dynamic-v3';
+const IMAGE_CACHE = 'asianflix-images-v3';
 
 const STATIC_ASSETS = [
   '/',

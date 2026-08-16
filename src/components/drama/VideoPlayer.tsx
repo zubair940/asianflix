@@ -323,7 +323,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="video-player space-y-3">
       {/* Mirror Server Switcher Bar */}
       <div className="p-3 rounded-2xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2">

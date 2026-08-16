@@ -10,7 +10,7 @@ export const queryClient = new QueryClient({
       gcTime: 10 * 60 * 1000,
       retry: (failureCount, error) => {
         if (failureCount >= 3) return false;
-        if (error instanceof Error && error.message.includes('401')) return false;
+        if (error instanceof Error && (error.message.includes('401') || error.message.includes('SESSION_EXPIRED'))) return false;
         return true;
       },
       refetchOnWindowFocus: false,

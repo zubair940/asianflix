@@ -26,7 +26,7 @@ export default defineConfig(() => ({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-ui': ['lucide-react', 'motion'],
-          'vendor-auth': ['bcryptjs', 'jsonwebtoken'],
+          'vendor-charts': ['recharts'],
         },
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
@@ -59,8 +59,6 @@ optimizeDeps: {
       'react-router-dom',
       'lucide-react',
       'motion',
-      'bcryptjs',
-      'jsonwebtoken',
     ],
   },
 }));

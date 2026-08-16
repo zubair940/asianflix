@@ -28,7 +28,7 @@ const HeroSection = memo(function HeroSection({ drama }: HeroSectionProps) {
 
   return (
     <section
-      className="relative w-full h-[75vh] min-h-[550px] max-h-[800px] overflow-hidden bg-gray-950"
+      className="hero relative w-full h-[75vh] min-h-[550px] max-h-[800px] overflow-hidden bg-gray-950"
       aria-labelledby="hero-title"
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}

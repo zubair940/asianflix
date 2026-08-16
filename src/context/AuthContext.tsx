@@ -56,7 +56,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const res = await authService.getMe();
       setUser(res.user);
     } catch {
-      setUser(null);
+      try {
+        await authService.refresh();
+        const res = await authService.getMe();
+        setUser(res.user);
+      } catch {
+        setUser(null);
+      }
     }
   }, []);
 

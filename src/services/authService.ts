@@ -20,6 +20,10 @@ export const authService = {
     return authApi.logout();
   },
 
+  refresh: () => {
+    return authApi.refresh();
+  },
+
   getMe: () => {
     return authApi.getMe();
   },

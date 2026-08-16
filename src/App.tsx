@@ -25,7 +25,7 @@ const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m
 
 const PageSkeleton = () => (
   <div className="min-h-[60vh] flex items-center justify-center">
-    <LoadingSpinner label="Loading..." size="lg" />
+    <LoadingSpinner label="Loading..." />
   </div>
 );
 
