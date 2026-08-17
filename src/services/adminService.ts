@@ -94,9 +94,11 @@ export const adminService = {
 
       // Path 2: R2 is not configured — try Vercel Blob (free on Hobby, no
       // credit card). The browser uploads DIRECTLY to Blob using a client
-      // token issued by the server.
+      // token issued by the server. A FRESH token is fetched for every file,
+      // and each token is valid for 24h server-side.
       if (r2Missing) {
-        try {
+        // Fetches a fresh client token and uploads the file to Blob.
+        const attempt = async () => {
           const tokenRes = await apiRequest<{ token: string; key: string }>('/admin/upload/client-token', {
             method: 'POST',
             body: JSON.stringify({ fileName: file.name, fileType: file.type || 'application/octet-stream' })
@@ -114,9 +116,23 @@ export const adminService = {
             onUploadProgress: (evt: any) => onProgress?.(Math.round(evt?.percentage ?? evt?.progress ?? 0))
           });
 
-          return { url: blobRes.url, filename: tokenRes.key };
+          return { url: blobRes.url, filename: blobRes.pathname || tokenRes.key };
+        };
+
+        try {
+          return await attempt();
         } catch (blobErr: any) {
           const blobMessage = (blobErr as Error).message || '';
+          // Token expired mid-upload (very large/slow file) — retry once with
+          // a brand-new token before giving up.
+          if (blobMessage.toLowerCase().includes('expired')) {
+            onProgress?.(0);
+            try {
+              return await attempt();
+            } catch (retryErr: any) {
+              throw new Error(`Retry with a fresh token failed: ${(retryErr as Error).message || 'unknown error'}`);
+            }
+          }
           // Blob is also unavailable — proxy small non-video files through the
           // server (it uses the same unified store). Videos must never be
           // proxied: the request body would exceed serverless limits.

@@ -84,6 +84,9 @@ export const generateClientUploadToken = async (req: Request, res: Response) => 
       pathname: key,
       allowedContentTypes: Object.values(ALLOWED_TYPES).flat().concat('application/octet-stream'),
       maximumSizeInBytes: 5 * 1024 * 1024 * 1024,
+      // Tokens default to 1 hour — too short for large/slow video uploads.
+      // Extend to 24 hours (bulk uploads take a while).
+      validUntil: Date.now() + 24 * 60 * 60 * 1000,
     });
 
     return res.status(200).json({
