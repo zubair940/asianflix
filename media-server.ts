@@ -115,11 +115,34 @@ function resolveTarget(file: Express.Multer.File, pathField?: string): string {
 }
 
 const app = express();
-app.use(
-  cors({
-    origin: CORS_ORIGIN === '*' ? true : CORS_ORIGIN.split(',').map((s) => s.trim()),
-  })
-);
+
+// Explicit CORS with preflight handling — critical for browser uploads through Cloudflare Tunnel
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const allowed = CORS_ORIGIN === '*' ? true : CORS_ORIGIN.split(',').map((s) => s.trim());
+  
+  if (allowed === true || (Array.isArray(allowed) && origin && allowed.includes(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  } else if (allowed === true) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Range, Content-Range');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
+// Request logger for debugging
+app.use((req, _res, next) => {
+  log(`REQUEST ${req.method} ${req.path} origin=${req.headers.origin || 'none'} ua=${req.headers['user-agent']?.slice(0, 50)}`);
+  next();
+});
 
 // diskStorage streams the upload to a temp file — safe for very large videos.
 const upload = multer({
@@ -144,15 +167,19 @@ app.get('/health', (_req, res) => {
 // POST /api/upload — multipart field "file" (+ optional "path" folder hint).
 app.post('/api/upload', upload.single('file'), (req, res) => {
   const start = Date.now();
+  log(`UPLOAD request: origin=${req.headers.origin}, content-length=${req.headers['content-length']}, path=${req.body.path || '(none)'}`);
+  
   try {
     const file = req.file;
     if (!file) {
+      log(`UPLOAD error: no file in request`);
       return res.status(400).json({ message: 'No file uploaded (multipart field must be named "file")' });
     }
 
     const originalExt = sanitizeExt(file.originalname);
     if (!ALLOWED_EXT.test(originalExt || '.')) {
       fs.unlinkSync(file.path);
+      log(`UPLOAD error: unsupported type ${originalExt}`);
       return res.status(400).json({
         message: `Unsupported file type "${originalExt || '?'}". Allowed: jpeg, png, webp, avif, gif, mp4, webm, mkv, mov, vtt, srt`,
       });
@@ -162,6 +189,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     const finalPath = path.join(MEDIA_DIR, relative);
     if (!finalPath.startsWith(MEDIA_DIR + path.sep)) {
       fs.unlinkSync(file.path);
+      log(`UPLOAD error: invalid path ${relative}`);
       return res.status(400).json({ message: 'Invalid path' });
     }
 
@@ -173,6 +201,9 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     const duration = Date.now() - start;
     log(`upload ${replaced ? 'REPLACED' : 'saved'} ${file.originalname} (${sizeMB} MB) -> ${relative} (${duration}ms)`);
 
+    const fileUrl = `${PUBLIC_URL}/uploads/${relative.split('/').map(encodeURIComponent).join('/')}`;
+    log(`UPLOAD success: ${fileUrl}`);
+    
     return res.status(201).json({
       message: 'File uploaded to local media server',
       provider: 'local-media-server',
@@ -180,7 +211,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
       originalName: file.originalname,
       mimetype: file.mimetype,
       size: file.size,
-      url: `${PUBLIC_URL}/uploads/${relative.split('/').map(encodeURIComponent).join('/')}`,
+      url: fileUrl,
       relativeUrl: `/uploads/${relative}`,
     });
   } catch (error: unknown) {
@@ -188,7 +219,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     if (req.file?.path) {
       try { fs.unlinkSync(req.file.path); } catch { /* already gone */ }
     }
-    log(`upload FAILED: ${err.message}`);
+    log(`UPLOAD FAILED: ${err.message}`);
     return res.status(500).json({ message: err.message || 'Failed to save file' });
   }
 });

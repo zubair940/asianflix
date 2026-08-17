@@ -93,6 +93,10 @@ export const adminService = {
       const formData = new FormData();
       formData.append('file', file);
       if (mediaPath) formData.append('path', mediaPath);
+      
+      // Use credentials: 'include' for cookies if needed, but for cross-origin
+      // tunnel we don't send cookies. The browser will set the correct
+      // Content-Type with boundary automatically for FormData.
       const res = await xhrUpload(`${mediaServerUrl}/api/upload`, 'POST', formData, {}, onProgress);
       if (!res.ok) {
         throw new Error(res.json?.message || `Upload failed (${res.status})`);
