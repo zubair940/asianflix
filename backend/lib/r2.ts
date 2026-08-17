@@ -153,7 +153,9 @@ class R2Storage {
     if (this.config?.publicUrl) {
       return `${this.config.publicUrl}/${key}`;
     }
-    return `https://${this.config?.accountId}.r2.cloudflarestorage.com/${this.config?.bucketName}/${key}`;
+    // No custom domain: serve through the same-origin signed proxy
+    // (GET /api/r2/serve/:key). The raw S3 endpoint 403s on private buckets.
+    return `/api/r2/serve/${key}`;
   }
 }
 

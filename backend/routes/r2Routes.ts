@@ -12,7 +12,52 @@ function isR2Ready(): boolean {
   return r2Storage.isInitialized();
 }
 
-// All routes require admin authentication (cookie or Bearer token)
+// Public file proxy: streams an object from R2 when no custom public domain
+// (R2_PUBLIC_URL) is configured. Relative URL used by getPublicUrl fallback.
+router.get('/serve/:key(*)', async (req, res) => {
+  try {
+    if (!isR2Ready()) {
+      return res.status(503).json({ message: 'Cloud storage (Cloudflare R2) is not configured. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME env vars in Vercel.' });
+    }
+
+    const key = req.params.key as string;
+    const streamUrl = await r2Storage.generatePresignedDownloadUrl(key, 3600);
+    const upstream = await fetch(streamUrl);
+
+    if (!upstream.ok) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+    const contentLength = upstream.headers.get('content-length');
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
+
+    if (upstream.body) {
+      const reader = upstream.body.getReader();
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          res.write(Buffer.from(value));
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    }
+    res.end();
+  } catch (error: unknown) {
+    const err = error as Error;
+    res.status(500).json({ message: err.message || 'Failed to serve file' });
+  }
+});
+
+// All routes below require admin authentication (cookie or Bearer token)
 router.use(authMiddleware, adminMiddleware);
 
 // Generate a generic presigned upload URL (no drama context needed)
