@@ -281,6 +281,7 @@ export const bulkGenerateEpisodes = (req: Request, res: Response) => {
         title: `Episode ${epNum}`,
         duration: duration || '65 mins',
         videoUrl: defaultUrl,
+        views: 0,
         subtitles: [
           { language: 'en', label: 'English', url: '/sample-sub-en.vtt' },
           { language: 'kr', label: 'Korean', url: '/sample-sub-kr.vtt' }

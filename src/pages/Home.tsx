@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext.js';
 import { Drama, WatchHistoryItem } from '../types.js';
 import { HeroSection } from '../components/homepage/HeroSection.js';
 import { DramaRow } from '../components/homepage/DramaRow.tsx';
-import { LoadingSpinner } from '../components/common/LoadingSpinner.js';
 import { EmptyState } from '../components/common/EmptyState.js';
 import { GENRES } from '../utils/constants.js';
 import { Flame, Sparkles, Clock, Compass, ThumbsUp, Heart, Film } from 'lucide-react';
@@ -18,7 +17,7 @@ export const Home: React.FC = () => {
   const [historyItems, setHistoryItems] = useState<WatchHistoryItem[]>([]);
 
   // Single combined fetch: trending + latest + all in one serverless call
-  const { data: homeData, loading } = useHomeData();
+  const { data: homeData, loading, error, refetch } = useHomeData();
 
   // Memoized derived data
   const trending = useMemo(() => homeData?.trending || [], [homeData]);
@@ -67,10 +66,37 @@ export const Home: React.FC = () => {
     return Array.from(dramaMap.values());
   }, [historyItems]);
 
-  if (loading) {
+  if (error && !homeData) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <LoadingSpinner label="Loading Asian Dramas..." size="lg" />
+        <EmptyState
+          icon="search"
+          title="Failed to Load Dramas"
+          description="We could not reach the drama library. Check your connection or try again."
+          actionText="Retry"
+          onActionClick={refetch}
+          showAdminPrompt={false}
+        />
+      </div>
+    );
+  }
+
+  if (loading && !homeData) {
+    return (
+      <div className="min-h-screen bg-gray-950 pt-10 pb-20">
+        <div className="container space-y-8">
+          <div className="h-72 rounded-3xl bg-gray-900/80 animate-pulse" />
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="space-y-3">
+              <div className="h-5 w-48 rounded-lg bg-gray-900/80 animate-pulse" />
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-4">
+                {[0, 1, 2, 3, 4, 5].map((j) => (
+                  <div key={j} className="aspect-[2/3] rounded-2xl bg-gray-900/60 animate-pulse" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

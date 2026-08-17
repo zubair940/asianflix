@@ -1,6 +1,37 @@
 import { apiRequest } from './api.js';
 import { DashboardStats, User } from '../types.js';
 
+function xhrUpload(
+  url: string,
+  method: string,
+  file: File | FormData,
+  headers: Record<string, string>,
+  onProgress?: (percent: number) => void
+): Promise<{ ok: boolean; status: number; json: any }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url, true);
+    Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      let json: any = null;
+      try {
+        json = JSON.parse(xhr.responseText);
+      } catch {
+        json = null;
+      }
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, json });
+    };
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.onabort = () => reject(new Error('Upload aborted'));
+    xhr.send(file);
+  });
+}
+
 export const adminService = {
   getDashboardStats: () => {
     return apiRequest<DashboardStats>('/admin/dashboard');
@@ -28,7 +59,7 @@ export const adminService = {
     });
   },
 
-  uploadFile: async (file: File) => {
+  uploadFile: async (file: File, onProgress?: (percent: number) => void) => {
     try {
       // Preferred path: presigned upload straight from the browser to R2.
       // Works on Vercel serverless (no request body size limit) and keeps
@@ -42,13 +73,13 @@ export const adminService = {
         throw new Error('R2 not ready');
       }
 
-      const putRes = await fetch(presign.uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': file.type || 'application/octet-stream'
-        },
-        body: file
-      });
+      const putRes = await xhrUpload(
+        presign.uploadUrl,
+        'PUT',
+        file,
+        { 'Content-Type': file.type || 'application/octet-stream', 'X-Requested-With': 'XMLHttpRequest' },
+        onProgress
+      );
 
       if (!putRes.ok) {
         throw new Error(`R2 upload failed (${putRes.status})`);
@@ -56,13 +87,15 @@ export const adminService = {
 
       return { url: presign.publicUrl, filename: presign.key };
     } catch {
+      onProgress?.(0);
       // Fallback path: proxy through the server (saves to local uploads/ dir).
       const formData = new FormData();
       formData.append('file', file);
-      return apiRequest<{ url: string; filename: string }>('/upload/file', {
-        method: 'POST',
-        body: formData
-      });
+      const res = await xhrUpload('/api/upload/file', 'POST', formData, {}, onProgress);
+      if (!res.ok) {
+        throw new Error(res.json?.message || `Upload failed (${res.status})`);
+      }
+      return { url: res.json.url, filename: res.json.filename };
     }
   }
 };

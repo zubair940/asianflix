@@ -90,6 +90,13 @@ export const dramaService = {
     });
   },
 
+  bulkCreateEpisodes: (items: { dramaId: string; episodeNumber?: number; title?: string; duration?: string; videoUrl: string; thumbnail?: string; subtitles?: { language: string; label: string; url: string }[] }[]) => {
+    return apiRequest<{ message: string; created: number; total: number; results: { index: number; success: boolean; episode?: Episode; message?: string }[] }>('/episodes/bulk-upload', {
+      method: 'POST',
+      body: JSON.stringify(items)
+    });
+  },
+
   updateEpisode: (id: string, data: Partial<Episode>) => {
     return apiRequest<{ message: string; episode: Episode }>(`/episodes/${id}`, {
       method: 'PUT',

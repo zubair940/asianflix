@@ -143,6 +143,7 @@ export const createEpisode = async (req: Request, res: Response) => {
       title,
       duration: duration || '60 mins',
       videoUrl,
+      views: 0,
       subtitles: Array.isArray(subtitles) ? subtitles : [],
       thumbnail: thumbnail || store.dramas.find(d => d.id === dramaId)?.poster || '',
       createdAt: new Date().toISOString(),
@@ -377,3 +378,98 @@ async function findDramaInMongo(dramaId: string): Promise<boolean> {
     return false;
   }
 }
+
+export async function getEpisodeCountMap(): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  let episodes = await getEpisodesFromMongo();
+  if (!episodes) episodes = [...store.episodes];
+  episodes.forEach(e => {
+    counts.set(e.dramaId, (counts.get(e.dramaId) || 0) + 1);
+  });
+  return counts;
+}
+
+interface BulkEpisodeInput {
+  dramaId: string;
+  episodeNumber?: number;
+  title?: string;
+  duration?: string;
+  videoUrl: string;
+  thumbnail?: string;
+  subtitles?: { language: string; label: string; url: string }[];
+}
+
+export const bulkCreateEpisodes = async (req: Request, res: Response) => {
+  try {
+    const items: BulkEpisodeInput[] = Array.isArray(req.body) ? req.body : req.body?.episodes;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: 'episodes array is required' });
+    }
+    if (items.length > 200) {
+      return res.status(400).json({ message: 'Maximum 200 episodes per bulk upload' });
+    }
+
+    const awaitMongo = await isMongoHealthy();
+    const countMap = await getEpisodeCountMap();
+    const nextNumberMap = new Map<string, number>();
+
+    const results: Array<{ index: number; success: boolean; episode?: Episode; message?: string }> = [];
+    let created = 0;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      try {
+        if (!item.dramaId || !item.videoUrl) {
+          results.push({ index: i, success: false, message: 'dramaId and videoUrl are required' });
+          continue;
+        }
+
+        const dramaExists = store.dramas.some(d => d.id === item.dramaId) || (awaitMongo && (await findDramaInMongo(item.dramaId)));
+        if (!dramaExists) {
+          results.push({ index: i, success: false, message: `Drama not found: ${item.dramaId}` });
+          continue;
+        }
+
+        let episodeNumber = Number(item.episodeNumber);
+        if (!Number.isFinite(episodeNumber) || episodeNumber < 1) {
+          const base = nextNumberMap.get(item.dramaId) ?? ((countMap.get(item.dramaId) || 0) + 1);
+          nextNumberMap.set(item.dramaId, base + 1);
+          episodeNumber = base;
+        } else {
+          nextNumberMap.set(item.dramaId, Math.max((nextNumberMap.get(item.dramaId) || countMap.get(item.dramaId) || 0) + 1, episodeNumber + 1));
+        }
+
+        const episode: Episode = {
+          id: `ep_${Date.now()}_${i}_${Math.floor(Math.random() * 1000)}`,
+          dramaId: item.dramaId,
+          episodeNumber,
+          title: item.title?.trim() || `Episode ${episodeNumber}`,
+          duration: item.duration || '60 mins',
+          videoUrl: item.videoUrl,
+          views: 0,
+          subtitles: Array.isArray(item.subtitles) ? item.subtitles : [],
+          thumbnail: item.thumbnail || '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await persistEpisode(episode);
+        created++;
+        results.push({ index: i, success: true, episode });
+      } catch (err) {
+        results.push({ index: i, success: false, message: (err as Error).message });
+      }
+    }
+
+    return res.status(200).json({
+      message: `Created ${created} of ${items.length} episodes`,
+      created,
+      total: items.length,
+      results
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      message: error.message || 'Error in bulk episode upload'
+    });
+  }
+};

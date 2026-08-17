@@ -1,7 +1,11 @@
 import { Request, Response } from 'express';
 import { store, Drama } from '../config/store.js';
 import { isMongoHealthy, getCollection, replaceOne, insertOne, deleteOne } from '../config/mongodb/mongoStore.js';
-import { getEpisodesForDrama, deleteEpisodesForDrama } from './episodeController.js';
+import { getEpisodesForDrama, deleteEpisodesForDrama, getEpisodeCountMap } from './episodeController.js';
+
+function withEpisodeCount(dramas: Drama[], counts: Map<string, number>): Drama[] {
+  return dramas.map(d => ({ ...d, episodeCount: counts.get(d.id) || 0 }));
+}
 
 async function getDramasFromMongo(): Promise<Drama[] | null> {
   if (!(await isMongoHealthy())) return null;
@@ -33,6 +37,9 @@ export const getHomeData = async (req: Request, res: Response) => {
   try {
     let dramas = await getDramasFromMongo();
     if (!dramas) dramas = [...store.dramas];
+
+    const counts = await getEpisodeCountMap();
+    dramas = withEpisodeCount(dramas, counts);
 
     const trending = [...dramas].sort((a, b) => b.views - a.views).slice(0, 10);
     const latest = [...dramas].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10);
@@ -69,6 +76,8 @@ export const getAllDramas = async (req: Request, res: Response) => {
     else if (sort === 'a-z') results.sort((a,b) => a.title.localeCompare(b.title));
     else results.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+    results = withEpisodeCount(results, await getEpisodeCountMap());
+
     return res.json({ total: results.length, dramas: results });
   } catch (error: any) {
     return res.status(500).json({ message: error.message || 'Error fetching dramas' });
@@ -80,6 +89,7 @@ export const getTrendingDramas = async (req: Request, res: Response) => {
     let results = await getDramasFromMongo();
     if (!results) results = [...store.dramas];
     results = results.sort((a, b) => b.views - a.views).slice(0, 10);
+    results = withEpisodeCount(results, await getEpisodeCountMap());
     return res.json(results);
   } catch (error: any) {
     return res.status(500).json({ message: error.message || 'Error fetching trending dramas' });
@@ -91,6 +101,7 @@ export const getLatestDramas = async (req: Request, res: Response) => {
     let results = await getDramasFromMongo();
     if (!results) results = [...store.dramas];
     results = results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10);
+    results = withEpisodeCount(results, await getEpisodeCountMap());
     return res.json(results);
   } catch (error: any) {
     return res.status(500).json({ message: error.message || 'Error fetching latest dramas' });
@@ -103,6 +114,7 @@ export const getDramasByGenre = async (req: Request, res: Response) => {
     let results = await getDramasFromMongo();
     if (!results) results = [...store.dramas];
     results = results.filter(d => d.genre.some(g => g.toLowerCase() === genre));
+    results = withEpisodeCount(results, await getEpisodeCountMap());
     return res.json(results);
   } catch (error: any) {
     return res.status(500).json({ message: error.message || 'Error fetching dramas by genre' });
@@ -151,8 +163,11 @@ export const getDramaById = async (req: Request, res: Response) => {
       if (!all) all = [...store.dramas];
       related = all.filter(d => d.id !== req.params.id && d.genre.includes(primaryGenre)).slice(0, 6);
     }
+    const counts = await getEpisodeCountMap();
+    const enrichedDrama = { ...drama, episodeCount: counts.get(drama.id) || 0 };
+    related = withEpisodeCount(related, counts);
 
-    return res.json({ drama, episodes, reviews, related });
+    return res.json({ drama: enrichedDrama, episodes, reviews, related });
   } catch (error: any) {
     return res.status(500).json({ message: error.message || 'Error fetching drama' });
   }

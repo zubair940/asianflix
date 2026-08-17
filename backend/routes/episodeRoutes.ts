@@ -7,7 +7,8 @@ import {
   replaceEpisodeVideo,
   updateEpisodeSubtitle,
   deleteEpisode,
-  reorderEpisodes
+  reorderEpisodes,
+  bulkCreateEpisodes
 } from '../controllers/episodeController.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { adminMiddleware } from '../middleware/admin.js';
@@ -20,6 +21,7 @@ router.get('/drama/:dramaId', getEpisodesByDrama);
 
 // Admin routes
 router.post('/', authMiddleware, adminMiddleware, createEpisode);
+router.post('/bulk-upload', authMiddleware, adminMiddleware, bulkCreateEpisodes);
 router.post('/reorder', authMiddleware, adminMiddleware, reorderEpisodes);
 router.put('/:id', authMiddleware, adminMiddleware, updateEpisode);
 router.put('/:id/video', authMiddleware, adminMiddleware, replaceEpisodeVideo);

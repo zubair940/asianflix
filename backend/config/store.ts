@@ -57,6 +57,7 @@ export interface Episode {
   title: string;
   duration: string;
   videoUrl: string;
+  views: number;
   subtitles: { language: string; label: string; url: string }[];
   thumbnail: string;
   createdAt: string;

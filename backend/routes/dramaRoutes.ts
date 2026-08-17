@@ -12,6 +12,7 @@ import {
 } from '../controllers/dramaController.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { adminMiddleware } from '../middleware/admin.js';
+import { getEpisodesByDrama } from '../controllers/episodeController.js';
 
 const router = Router();
 
@@ -21,6 +22,7 @@ router.get('/home', getHomeData);
 router.get('/trending', getTrendingDramas);
 router.get('/latest', getLatestDramas);
 router.get('/genre/:genre', getDramasByGenre);
+router.get('/:id/episodes', getEpisodesByDrama);
 router.get('/:id', getDramaById);
 
 // Admin protected routes
