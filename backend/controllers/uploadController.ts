@@ -51,9 +51,11 @@ export const generateUploadPresignUrl = async (req: Request, res: Response) => {
 };
 
 // POST /api/admin/upload/client-token
-// Returns a Vercel Blob client upload token so the browser can PUT files
-// DIRECTLY to Blob storage (free on the Hobby plan, no credit card needed).
-// Skipped when R2 is configured — presigned-url is preferred there.
+// Issues a Vercel Blob client token so the browser can PUT files DIRECTLY to
+// Blob storage (free on the Hobby plan, no credit card needed).
+// NOTE: @vercel/blob v2 removed getClientUploadToken — the server now issues
+// the token via generateClientTokenFromReadWriteToken and the browser uploads
+// with @vercel/blob/client's put().
 export const generateClientUploadToken = async (req: Request, res: Response) => {
   try {
     const { fileName, fileType } = req.body;
@@ -77,15 +79,17 @@ export const generateClientUploadToken = async (req: Request, res: Response) => 
     }
 
     const key = sanitizeKey(fileName);
-    const { getClientUploadToken } = await import('@vercel/blob');
-    const result = await getClientUploadToken({ pathname: key, access: 'public' });
+    const { generateClientTokenFromReadWriteToken } = await import('@vercel/blob/client');
+    const token = await generateClientTokenFromReadWriteToken({
+      pathname: key,
+      allowedContentTypes: Object.values(ALLOWED_TYPES).flat().concat('application/octet-stream'),
+      maximumSizeInBytes: 5 * 1024 * 1024 * 1024,
+    });
 
     return res.status(200).json({
       message: 'Blob upload token generated',
-      uploadUrl: result.url,
-      token: result.token,
+      token,
       key,
-      url: result.url,
     });
   } catch (error: unknown) {
     const err = error as Error;

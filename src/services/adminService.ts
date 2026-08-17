@@ -93,22 +93,25 @@ export const adminService = {
       const r2Missing = message.includes('not configured') || message.includes('503');
 
       // Path 2: R2 is not configured — try Vercel Blob (free on Hobby, no
-      // credit card). The browser uploads DIRECTLY to Blob via a client token.
+      // credit card). The browser uploads DIRECTLY to Blob using a client
+      // token issued by the server.
       if (r2Missing) {
         try {
-          const tokenRes = await apiRequest<{ uploadUrl: string; url: string; token: string; key: string }>('/admin/upload/client-token', {
+          const tokenRes = await apiRequest<{ token: string; key: string }>('/admin/upload/client-token', {
             method: 'POST',
             body: JSON.stringify({ fileName: file.name, fileType: file.type || 'application/octet-stream' })
           });
 
-          if (!tokenRes.uploadUrl || !tokenRes.token) {
+          if (!tokenRes.token || !tokenRes.key) {
             throw new Error('Blob not ready');
           }
 
-          const { upload } = await import('@vercel/blob/client');
-          const blobRes = await upload(tokenRes.uploadUrl, file, {
+          const { put } = await import('@vercel/blob/client');
+          const blobRes = await put(tokenRes.key, file, {
+            access: 'public',
             token: tokenRes.token,
-            onUploadProgress: (evt: any) => onProgress?.(Math.round(evt?.progress ?? 0))
+            multipart: isVideo,
+            onUploadProgress: (evt: any) => onProgress?.(Math.round(evt?.percentage ?? evt?.progress ?? 0))
           });
 
           return { url: blobRes.url, filename: tokenRes.key };
