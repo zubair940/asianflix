@@ -65,6 +65,39 @@ export const DramaDetail: React.FC = () => {
     }
   };
 
+  // Warm the connection to media hosts (Vercel Blob / R2 / external CDNs) as
+  // soon as the drama loads. When the user clicks an episode, the browser no
+  // longer pays DNS+TLS+connection setup before the first video bytes arrive —
+  // playback starts immediately instead of buffering on a cold connection.
+  useEffect(() => {
+    if (!data) return;
+    const origins = new Set<string>();
+    const collect = (url?: string) => {
+      if (!url) return;
+      try {
+        const u = new URL(url, window.location.origin);
+        if (u.origin !== window.location.origin) origins.add(u.origin);
+      } catch {
+        /* ignore malformed URLs */
+      }
+    };
+
+    data.episodes.forEach((ep) => {
+      collect(ep.videoUrl);
+      collect(ep.thumbnail);
+    });
+    collect(data.drama.poster);
+    collect(data.drama.backdrop);
+
+    origins.forEach((origin) => {
+      if (document.querySelector(`link[rel="preconnect"][href="${origin}"]`)) return;
+      const link = document.createElement('link');
+      link.rel = 'preconnect';
+      link.href = origin;
+      document.head.appendChild(link);
+    });
+  }, [data]);
+
   const handleDeleteDrama = async () => {
     if (!data) return;
     if (!confirm(`Are you sure you want to permanently delete "${data.drama.title}" and all its episodes?`)) return;

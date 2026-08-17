@@ -126,6 +126,14 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
       }
 
       videoRef.current.load();
+
+      // Instant play: the user clicked an episode to get here (a user gesture),
+      // so browsers generally allow unmuted playback to start immediately.
+      // If autoplay is blocked (e.g. some iOS/Safari setups), this rejects
+      // silently and the user just taps Play — the still-frame stays visible.
+      videoRef.current.play().catch(() => {
+        /* autoplay blocked — leave the poster/play button visible */
+      });
     }
   }, [drama.id, episode.id, resolvedVideoUrl]);
 
@@ -329,7 +337,6 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
           preload="auto"
           playsInline
           className="w-full h-full object-contain cursor-pointer bg-black"
-          crossOrigin="anonymous"
         >
           <source src={resolvedVideoUrl} type="video/mp4" />
           {episode.subtitles &&
