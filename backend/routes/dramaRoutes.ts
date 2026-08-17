@@ -13,6 +13,7 @@ import {
 import { authMiddleware } from '../middleware/auth.js';
 import { adminMiddleware } from '../middleware/admin.js';
 import { getEpisodesByDrama } from '../controllers/episodeController.js';
+import { getMediaServerConfigHandler } from '../controllers/uploadController.js';
 
 const router = Router();
 
@@ -22,6 +23,9 @@ router.get('/home', getHomeData);
 router.get('/trending', getTrendingDramas);
 router.get('/latest', getLatestDramas);
 router.get('/genre/:genre', getDramasByGenre);
+// MUST be registered before /:id — tells the browser where the local media
+// server lives (set MEDIA_SERVER_URL on Vercel).
+router.get('/media-config', getMediaServerConfigHandler);
 router.get('/:id/episodes', getEpisodesByDrama);
 router.get('/:id', getDramaById);
 

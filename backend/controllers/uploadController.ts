@@ -106,6 +106,15 @@ export const getStorageStatusHandler = (_req: Request, res: Response) => {
   return res.json(getStorageStatus());
 };
 
+// GET /api/dramas/media-config
+// Tells the browser where the local media server lives (set MEDIA_SERVER_URL
+// on Vercel). When set, uploads go DIRECTLY from the browser to your PC and
+// Vercel Blob is never touched.
+export const getMediaServerConfigHandler = (_req: Request, res: Response) => {
+  const url = process.env.MEDIA_SERVER_URL;
+  return res.json({ mediaServerUrl: url ? url.replace(/\/+$/, '') : null });
+};
+
 // POST /api/upload/file (server proxy fallback)
 // Pushes the file through the unified provider chain (R2 -> Vercel Blob ->
 // local disk). Used for small files (images/subtitles) when the direct

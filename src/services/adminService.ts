@@ -37,6 +37,21 @@ export const adminService = {
     return apiRequest<DashboardStats>('/admin/dashboard');
   },
 
+  // Local media server config is cached for the page lifetime — it never
+  // changes while the site is running.
+  _mediaServerUrlCache: undefined as string | null | undefined,
+
+  _getMediaServerUrl: async (): Promise<string | null> => {
+    if (adminService._mediaServerUrlCache !== undefined) return adminService._mediaServerUrlCache;
+    try {
+      const res = await apiRequest<{ mediaServerUrl: string | null }>('/dramas/media-config');
+      adminService._mediaServerUrlCache = res?.mediaServerUrl || null;
+    } catch {
+      adminService._mediaServerUrlCache = null;
+    }
+    return adminService._mediaServerUrlCache;
+  },
+
   getAllUsers: () => {
     return apiRequest<User[]>('/admin/users');
   },
@@ -61,6 +76,26 @@ export const adminService = {
 
   uploadFile: async (file: File, onProgress?: (percent: number) => void) => {
     const isVideo = /^video\//.test(file.type);
+
+    // Path 0: local media server (your PC behind a free Cloudflare Tunnel).
+    // When MEDIA_SERVER_URL is set on Vercel, the browser uploads DIRECTLY to
+    // your PC — Vercel Blob storage is never touched, so the free 1GB quota
+    // stays untouched. If the PC is offline, fall through to the cloud paths.
+    try {
+      const mediaServerUrl = await adminService._getMediaServerUrl();
+      if (mediaServerUrl) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await xhrUpload(`${mediaServerUrl}/api/upload`, 'POST', formData, {}, onProgress);
+        if (res.ok) {
+          return { url: res.json.url, filename: res.json.filename };
+        }
+        throw new Error(res.json?.message || `Local media server upload failed (${res.status})`);
+      }
+    } catch (err: any) {
+      onProgress?.(0);
+      console.warn('[upload] local media server unavailable, falling back:', (err as Error)?.message || err);
+    }
 
     // Path 1: R2 presigned upload straight from the browser to R2.
     // Works on Vercel serverless (no request body size limit, no local
