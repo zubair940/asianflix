@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Drama } from '../../types.js';
 import { dramaService } from '../../services/dramaService.js';
+import { adminService } from '../../services/adminService.js';
 import { useToast } from '../../context/ToastContext.js';
 import { DRAMA_CATEGORIES } from '../../utils/constants.js';
-import { Edit, X, Loader2, Film, Globe } from 'lucide-react';
+import { Edit, X, Loader2, Film, Globe, Upload } from 'lucide-react';
 
 interface EditDramaModalProps {
   isOpen: boolean;
@@ -31,6 +32,24 @@ export const EditDramaModal: React.FC<EditDramaModalProps> = ({
   const [director, setDirector] = useState('');
   const [releaseYear, setReleaseYear] = useState<number>(new Date().getFullYear());
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, targetField: 'poster' | 'backdrop') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const res = await adminService.uploadFile(file);
+      if (targetField === 'poster') setPoster(res.url);
+      else setBackdrop(res.url);
+      showToast('Image uploaded successfully', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Image upload failed', 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     if (drama) {
@@ -169,28 +188,40 @@ export const EditDramaModal: React.FC<EditDramaModalProps> = ({
             />
           </div>
 
-          {/* Posters & Backdrops */}
+          {/* Posters & Backdrops (URL or Upload) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-300">Poster Image URL *</label>
-              <input
-                type="text"
-                required
-                value={poster}
-                onChange={(e) => setPoster(e.target.value)}
-                placeholder="https://..."
-                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-[#00C2FF]"
-              />
+              <label className="font-bold text-slate-300">Poster Image (URL or Upload) *</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  required
+                  value={poster}
+                  onChange={(e) => setPoster(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-[#00C2FF]"
+                />
+                <label className="px-3 py-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl text-slate-200 cursor-pointer flex items-center gap-1 shrink-0 disabled:opacity-50">
+                  <Upload className="w-3.5 h-3.5" /> {uploading ? 'Uploading...' : 'File'}
+                  <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(e) => handleFileUpload(e, 'poster')} />
+                </label>
+              </div>
             </div>
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-300">Backdrop Banner URL</label>
-              <input
-                type="text"
-                value={backdrop}
-                onChange={(e) => setBackdrop(e.target.value)}
-                placeholder="https://..."
-                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-[#00C2FF]"
-              />
+              <label className="font-bold text-slate-300">Backdrop Banner (URL or Upload)</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={backdrop}
+                  onChange={(e) => setBackdrop(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-[#00C2FF]"
+                />
+                <label className="px-3 py-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl text-slate-200 cursor-pointer flex items-center gap-1 shrink-0 disabled:opacity-50">
+                  <Upload className="w-3.5 h-3.5" /> {uploading ? 'Uploading...' : 'File'}
+                  <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(e) => handleFileUpload(e, 'backdrop')} />
+                </label>
+              </div>
             </div>
           </div>
 

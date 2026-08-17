@@ -97,7 +97,11 @@ export const adminService = {
       onProgress?.(0);
       // Fallback path: proxy through the server. Locally the file is saved to
       // the uploads/ dir; on serverless platforms it is pushed to R2 when
-      // configured, otherwise a clear message is returned.
+      // configured. Never proxy videos or large files — the request body would
+      // exceed serverless function limits (413) before ever reaching R2.
+      if (/^video\//.test(file.type)) {
+        throw new Error(`Video upload to cloud storage failed: ${message || 'presigned upload error'}. Ensure R2 env vars (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME) are set on the server.`);
+      }
       const formData = new FormData();
       formData.append('file', file);
       const res = await xhrUpload('/api/upload/file', 'POST', formData, {}, onProgress);
