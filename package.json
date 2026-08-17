@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "tsx server.ts",
     "media-server": "tsx media-server.ts",
+    "wipe:data": "tsx scripts/wipe-data.ts",
+    "wipe:blob": "tsx scripts/wipe-blob.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "preview": "vite preview",

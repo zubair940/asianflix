@@ -5,6 +5,7 @@ import { dramaService } from '../../services/dramaService.js';
 import { useToast } from '../../context/ToastContext.js';
 import { LoadingSpinner } from '../common/LoadingSpinner.js';
 import { EmptyState } from '../common/EmptyState.js';
+import { SmartImage } from '../common/SmartImage.js';
 import {
   Film,
   Users,
@@ -510,7 +511,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
                   {dramas.map((d) => (
                     <tr key={d.id} className="hover:bg-slate-850/50 transition-colors">
                       <td className="p-3.5 flex items-center gap-3">
-                        <img src={d.poster} alt={d.title} className="w-10 h-14 rounded object-cover border border-slate-800" />
+                        <SmartImage src={d.poster} alt={d.title} className="w-10 h-14 rounded object-cover border border-slate-800" />
                         <div>
                           <span className="font-bold text-white block">{d.title}</span>
                           {d.titleKR && <span className="text-[11px] text-[#00C2FF] font-mono">{d.titleKR}</span>}

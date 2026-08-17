@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Drama } from '../../types.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { Play, Bookmark, Info, Star, Sparkles, Volume2, VolumeX, ChevronRight } from 'lucide-react';
+import { SmartImage } from '../common/SmartImage.js';
 
 interface HeroSectionProps {
   drama: Drama;
@@ -35,7 +36,7 @@ const HeroSection = memo(function HeroSection({ drama }: HeroSectionProps) {
     >
       {/* Background Image */}
       <div className="absolute inset-0 z-0" aria-hidden="true">
-        <img
+        <SmartImage
           src={drama.backdrop}
           alt=""
           loading="eager"

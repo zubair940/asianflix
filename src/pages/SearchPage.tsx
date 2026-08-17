@@ -7,6 +7,7 @@ import { FilterSidebar } from '../components/search/FilterSidebar.js';
 import { SkeletonCard } from '../components/common/SkeletonCard.js';
 import { EmptyState } from '../components/common/EmptyState.js';
 import { Search, SlidersHorizontal, Film, X } from 'lucide-react';
+import { SmartImage } from '../components/common/SmartImage.js';
 
 export const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -120,7 +121,7 @@ export const SearchPage: React.FC = () => {
                     }}
                     className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-800 cursor-pointer transition-colors"
                   >
-                    <img src={s.poster} alt={s.title} loading="lazy" decoding="async" className="w-8 h-12 rounded object-cover" />
+                    <SmartImage src={s.poster} alt={s.title} loading="lazy" decoding="async" className="w-8 h-12 rounded object-cover" />
                     <div>
                       <h4 className="text-xs font-bold text-white">{s.title}</h4>
                       <span className="text-[10px] text-rose-400">{s.releaseYear} • {s.genre.slice(0, 2).join(', ')}</span>

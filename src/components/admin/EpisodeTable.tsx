@@ -1,6 +1,7 @@
 import React from 'react';
 import { Episode, Drama } from '../../types.js';
 import { Edit, Video, Trash2, Clock, Play } from 'lucide-react';
+import { SmartImage } from '../common/SmartImage.js';
 import { Link } from 'react-router-dom';
 
 interface EpisodeTableProps {
@@ -53,7 +54,7 @@ export const EpisodeTable: React.FC<EpisodeTableProps> = ({
                 <td className="p-3.5">
                   <div className="flex items-center gap-2.5">
                     {drama?.poster && (
-                      <img
+                      <SmartImage
                         src={drama.poster}
                         alt={dramaTitle}
                         className="w-8 h-11 rounded object-cover border border-slate-800 shrink-0"

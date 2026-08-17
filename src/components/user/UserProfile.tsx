@@ -7,6 +7,7 @@ import { Drama, WatchHistoryItem } from '../../types.js';
 import { DramaCard } from '../homepage/DramaCard.js';
 import { LoadingSpinner } from '../common/LoadingSpinner.js';
 import { User, Bookmark, History, Clock, Film, Edit3, Check } from 'lucide-react';
+import { SmartImage } from '../common/SmartImage.js';
 
 interface UserProfileProps {
   defaultTab?: 'watchlist' | 'history';
@@ -172,7 +173,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ defaultTab = 'watchlis
                 className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
               >
                 <div className="flex items-center gap-3">
-                  <img
+                  <SmartImage
                     src={item.drama?.poster || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=100'}
                     alt={item.drama?.title}
                     className="w-14 h-20 rounded-lg object-cover border border-slate-800"

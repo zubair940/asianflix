@@ -7,6 +7,7 @@ import { EditEpisodeModal } from '../admin/EditEpisodeModal.js';
 import { ReplaceVideoModal } from '../admin/ReplaceVideoModal.js';
 import { DeleteConfirmModal } from '../admin/DeleteConfirmModal.js';
 import { Play, Clock, CheckCircle2, Edit, Video, Trash2 } from 'lucide-react';
+import { SmartImage } from '../common/SmartImage.js';
 
 interface EpisodeListProps {
   episodes: Episode[];
@@ -79,7 +80,7 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
                 onClick={() => onSelectEpisode(ep)}
                 className="relative aspect-video w-24 rounded-lg overflow-hidden shrink-0 bg-slate-800 cursor-pointer"
               >
-                <img
+                <SmartImage
                   src={ep.thumbnail}
                   alt={ep.title}
                   loading="lazy"

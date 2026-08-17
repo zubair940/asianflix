@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Drama } from '../../types.js';
 import { Heart, Star, Film, X, Sparkles, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { SmartImage } from '../common/SmartImage.js';
 
 interface ActorBioModalProps {
   actorName: string;
@@ -103,7 +104,7 @@ export const ActorBioModal: React.FC<ActorBioModalProps> = ({
                 }}
                 className="p-2.5 rounded-2xl bg-slate-950 border border-slate-800 hover:border-[#00C2FF] flex items-center gap-3 transition-all cursor-pointer group"
               >
-                <img
+                <SmartImage
                   src={d.poster}
                   alt={d.title}
                   className="w-10 h-14 rounded-lg object-cover group-hover:scale-105 transition-transform"

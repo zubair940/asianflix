@@ -6,6 +6,7 @@ import { Drama, WatchHistoryItem } from '@/types';
 import { DramaCard } from '@/components/homepage/DramaCard';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { AvatarSelector } from '@/components/common/AvatarSelector';
+import { SmartImage } from '@/components/common/SmartImage';
 import { User, Bookmark, History, Clock, Film, Edit3, Check, Trash2, Eye, ArrowRight, Loader2 } from 'lucide-react';
 
 interface ProfilePageProps {
@@ -259,7 +260,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ defaultTab = 'watchlis
                   className="p-4 rounded-xl bg-gray-900 border border-gray-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <img
+                    <SmartImage
                       src={item.drama?.poster || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=100'}
                       alt={item.drama?.title}
                       loading="lazy"

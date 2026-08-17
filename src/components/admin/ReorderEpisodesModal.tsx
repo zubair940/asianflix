@@ -3,6 +3,7 @@ import { Drama, Episode } from '../../types.js';
 import { dramaService } from '../../services/dramaService.js';
 import { useToast } from '../../context/ToastContext.js';
 import { ArrowUp, ArrowDown, GripVertical, Save, X, Loader2, ListOrdered, CheckCircle2 } from 'lucide-react';
+import { SmartImage } from '../common/SmartImage.js';
 
 interface ReorderEpisodesModalProps {
   isOpen: boolean;
@@ -164,7 +165,7 @@ export const ReorderEpisodesModal: React.FC<ReorderEpisodesModalProps> = ({
         {currentDrama && (
           <div className="px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between shrink-0 text-xs">
             <div className="flex items-center gap-2">
-              <img
+              <SmartImage
                 src={currentDrama.poster}
                 alt={currentDrama.title}
                 className="w-7 h-10 rounded object-cover border border-slate-800"
@@ -213,7 +214,7 @@ export const ReorderEpisodesModal: React.FC<ReorderEpisodesModalProps> = ({
                 </span>
 
                 {/* Thumbnail */}
-                <img
+                <SmartImage
                   src={ep.thumbnail}
                   alt={ep.title}
                   className="w-12 h-8 rounded-lg object-cover border border-slate-800 shrink-0"

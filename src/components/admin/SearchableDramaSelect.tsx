@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { Drama } from '../../types.js';
 import { Search, ChevronDown, ChevronUp, X, Film, Check, Plus } from 'lucide-react';
+import { SmartImage } from '../common/SmartImage.js';
 
 interface SearchableDramaSelectProps {
   dramas: Drama[];
@@ -212,7 +213,7 @@ const SearchableDramaSelect = memo(function SearchableDramaSelect({
                     aria-selected={value === drama.id}
                     aria-current={index === highlightedIndex ? 'true' : 'false'}
                   >
-                    <img
+                    <SmartImage
                       src={drama.poster}
                       alt=""
                       className="w-8 h-11 rounded object-cover border border-slate-700 flex-shrink-0"

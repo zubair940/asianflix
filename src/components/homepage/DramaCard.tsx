@@ -4,6 +4,7 @@ import { Drama, WatchHistoryItem } from '../../types.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { formatViews } from '../../utils/helpers.js';
 import { Star, Play, Bookmark, Eye } from 'lucide-react';
+import { SmartImage } from '../common/SmartImage.js';
 
 interface DramaCardProps {
   drama: Drama;
@@ -38,7 +39,7 @@ const DramaCard = memo(function DramaCard({ drama, historyItem }: DramaCardProps
     <article className="group relative card-interactive aspect-[2/3] flex flex-col overflow-hidden" aria-label={drama.title}>
       {/* Poster Image & Hover Overlay */}
       <div className="relative flex-1 w-full overflow-hidden bg-gray-900">
-        <img
+        <SmartImage
           src={drama.poster}
           alt=""
           loading="lazy"

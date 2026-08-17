@@ -13,6 +13,7 @@ import { ActorBioModal } from './ActorBioModal.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useToast } from '../../context/ToastContext.js';
 import { formatViews } from '../../utils/helpers.js';
+import { SmartImage } from '../common/SmartImage.js';
 import {
   Star,
   Play,
@@ -186,7 +187,7 @@ export const DramaDetail: React.FC = () => {
 
       {/* Hero Backdrop Banner */}
       <div className="relative w-full h-[55vh] min-h-[400px] overflow-hidden bg-slate-950">
-        <img
+        <SmartImage
           src={drama.backdrop || drama.poster}
           alt={drama.title}
           className="w-full h-full object-cover filter brightness-50"
@@ -200,7 +201,7 @@ export const DramaDetail: React.FC = () => {
         <div className="flex flex-col md:flex-row gap-8 items-start">
           {/* Poster Image */}
           <div className="w-56 sm:w-64 shrink-0 rounded-2xl overflow-hidden shadow-2xl border-2 border-slate-800 bg-slate-900 mx-auto md:mx-0">
-            <img src={drama.poster} alt={drama.title} className="w-full aspect-[2/3] object-cover" />
+            <SmartImage src={drama.poster} alt={drama.title} className="w-full aspect-[2/3] object-cover" />
           </div>
 
           {/* Details Column */}
