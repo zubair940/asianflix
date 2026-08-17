@@ -86,7 +86,14 @@ export const adminService = {
       }
 
       return { url: presign.publicUrl, filename: presign.key };
-    } catch {
+    } catch (err: any) {
+      const message = (err as Error).message || '';
+      // R2 is not configured on the server — no fallback exists that would
+      // persist files on serverless, so surface the server's message directly.
+      if (message.includes('not configured') || message.includes('503')) {
+        onProgress?.(0);
+        throw new Error('Cloud storage (R2) is not configured on the server. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET_NAME in Vercel env vars.');
+      }
       onProgress?.(0);
       // Fallback path: proxy through the server. Locally the file is saved to
       // the uploads/ dir; on serverless platforms it is pushed to R2 when

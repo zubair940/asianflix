@@ -185,13 +185,24 @@ export function generateSubtitleKey(dramaId: string, episodeNumber: number, lang
   return `dramas/${dramaId}/episodes/ep-${episodeNumber.toString().padStart(3, '0')}-${language}.${ext}`;
 }
 
-// Initialize R2 from environment variables
+// Initialize R2 from environment variables.
+// Supports both the R2_* naming and the CLOUDFLARE_R2_* / CLOUDFLARE_ACCOUNT_ID naming.
 export function initializeR2FromEnv(): void {
-  const accountId = process.env.R2_ACCOUNT_ID;
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-  const bucketName = process.env.R2_BUCKET_NAME;
-  const publicUrl = process.env.R2_PUBLIC_URL;
+  const accountId =
+    process.env.R2_ACCOUNT_ID ||
+    process.env.CLOUDFLARE_ACCOUNT_ID;
+  const accessKeyId =
+    process.env.R2_ACCESS_KEY_ID ||
+    process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
+  const secretAccessKey =
+    process.env.R2_SECRET_ACCESS_KEY ||
+    process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
+  const bucketName =
+    process.env.R2_BUCKET_NAME ||
+    process.env.CLOUDFLARE_R2_BUCKET_NAME;
+  const publicUrl =
+    process.env.R2_PUBLIC_URL ||
+    process.env.CLOUDFLARE_R2_PUBLIC_URL;
 
   if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
     console.warn('R2 credentials not fully configured. Video uploads will not work.');
