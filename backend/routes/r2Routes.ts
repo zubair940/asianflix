@@ -14,6 +14,8 @@ function isR2Ready(): boolean {
 
 // Public file proxy: streams an object from R2 when no custom public domain
 // (R2_PUBLIC_URL) is configured. Relative URL used by getPublicUrl fallback.
+// Supports HTTP Range requests (Accept-Ranges + 206) so <video> elements can
+// seek and buffer efficiently instead of reloading the whole file.
 router.get('/serve/:key(*)', async (req, res) => {
   try {
     if (!isR2Ready()) {
@@ -22,9 +24,17 @@ router.get('/serve/:key(*)', async (req, res) => {
 
     const key = req.params.key as string;
     const streamUrl = await r2Storage.generatePresignedDownloadUrl(key, 3600);
-    const upstream = await fetch(streamUrl);
 
-    if (!upstream.ok) {
+    const headers: Record<string, string> = {};
+    const range = req.headers.range;
+    const isRange = typeof range === 'string' && range.startsWith('bytes=');
+    if (isRange) {
+      headers.Range = range as string;
+    }
+
+    const upstream = await fetch(streamUrl, { headers });
+
+    if (!upstream.ok && upstream.status !== 206) {
       return res.status(404).json({ message: 'File not found' });
     }
 
@@ -34,8 +44,16 @@ router.get('/serve/:key(*)', async (req, res) => {
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Accept-Ranges', 'bytes');
     if (contentLength) {
       res.setHeader('Content-Length', contentLength);
+    }
+    if (isRange && upstream.status === 206) {
+      res.status(206);
+      const contentRange = upstream.headers.get('content-range');
+      if (contentRange) {
+        res.setHeader('Content-Range', contentRange);
+      }
     }
 
     if (upstream.body) {

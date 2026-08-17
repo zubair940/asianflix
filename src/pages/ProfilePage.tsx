@@ -262,6 +262,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ defaultTab = 'watchlis
                     <img
                       src={item.drama?.poster || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=100'}
                       alt={item.drama?.title}
+                      loading="lazy"
+                      decoding="async"
                       className="w-14 h-20 rounded-lg object-cover border border-gray-800 flex-shrink-0"
                     />
                     <div className="min-w-0">

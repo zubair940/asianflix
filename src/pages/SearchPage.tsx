@@ -120,7 +120,7 @@ export const SearchPage: React.FC = () => {
                     }}
                     className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-800 cursor-pointer transition-colors"
                   >
-                    <img src={s.poster} alt={s.title} className="w-8 h-12 rounded object-cover" />
+                    <img src={s.poster} alt={s.title} loading="lazy" decoding="async" className="w-8 h-12 rounded object-cover" />
                     <div>
                       <h4 className="text-xs font-bold text-white">{s.title}</h4>
                       <span className="text-[10px] text-rose-400">{s.releaseYear} • {s.genre.slice(0, 2).join(', ')}</span>

@@ -82,6 +82,8 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
                 <img
                   src={ep.thumbnail}
                   alt={ep.title}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                 />
                 <div className={`absolute inset-0 flex items-center justify-center backdrop-blur-[1px] ${isActive ? 'bg-rose-600/60' : 'bg-slate-950/40 opacity-0 group-hover:opacity-100'} transition-opacity`}>

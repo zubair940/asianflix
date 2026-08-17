@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Episode, Drama, Subtitle, ServerMirror, DanmakuComment } from '../../types.js';
+import { Episode, Drama, Subtitle, DanmakuComment } from '../../types.js';
 import { usePlayer } from '../../context/PlayerContext.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { userService } from '../../services/userService.js';
@@ -29,8 +29,6 @@ import {
   MessageSquare,
   Users,
   Download,
-  Server,
-  FastForward,
   Type,
   Send,
   Sparkles
@@ -43,7 +41,7 @@ interface VideoPlayerProps {
   onSelectEpisode: (ep: Episode) => void;
 }
 
-export const VideoPlayer: React.FC<VideoPlayerProps> = ({
+const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
   drama,
   episode,
   allEpisodes,
@@ -74,8 +72,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [selectedQuality, setSelectedQuality] = useState('1080p (FHD)');
   const [controlsVisible, setControlsVisible] = useState(true);
 
-  // Multi-server state
-  const [activeServerIndex, setActiveServerIndex] = useState<number>(0);
+  // Single source: the episode's direct video URL (no mirror servers)
+  const resolvedVideoUrl = getMediaUrl(episode.videoUrl);
 
   // Danmaku state
   const [danmakuEnabled, setDanmakuEnabled] = useState(true);
@@ -94,40 +92,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   });
 
   const hideTimeoutRef = useRef<any>(null);
-
-  // Default server list (built from episode servers or single videoUrl fallback)
-  const serverList: ServerMirror[] = episode.servers && episode.servers.length > 0
-    ? episode.servers
-    : [
-        {
-          id: 'srv_default_1',
-          name: 'Server 1 (VIP Fast 1080p)',
-          url: episode.videoUrl,
-          quality: '1080p',
-          audioType: 'Subbed',
-          pingMs: 18,
-          isPrimary: true
-        },
-        {
-          id: 'srv_default_2',
-          name: 'Server 2 (NetMirror HLS)',
-          url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-          quality: '720p',
-          audioType: 'Subbed',
-          pingMs: 28
-        },
-        {
-          id: 'srv_default_3',
-          name: 'Server 3 (MovieBox Cloud)',
-          url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-          quality: '480p',
-          audioType: 'English Dub',
-          pingMs: 42
-        }
-      ];
-
-  const currentServer = serverList[activeServerIndex] || serverList[0];
-  const resolvedVideoUrl = getMediaUrl(currentServer.url);
 
   // Load Danmaku comments
   useEffect(() => {
@@ -324,34 +288,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   return (
     <div className="video-player space-y-3">
-      {/* Mirror Server Switcher Bar */}
-      <div className="p-3 rounded-2xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
-        <div className="flex items-center gap-2">
-          <Server className="w-4 h-4 text-[#00C2FF]" />
-          <span className="font-bold text-white">Stream Mirror Server:</span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5">
-          {serverList.map((srv, idx) => (
-            <button
-              key={srv.id}
-              onClick={() => {
-                setActiveServerIndex(idx);
-                showToast(`Switched to ${srv.name}`, 'info');
-              }}
-              className={`px-3 py-1.5 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                activeServerIndex === idx
-                  ? 'bg-gradient-to-r from-[#00C2FF] to-[#0047FF] text-black border-cyan-400 font-extrabold shadow-md'
-                  : 'bg-slate-950 border-slate-800 text-slate-300 hover:text-white hover:border-slate-700'
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              {srv.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Main Video Container */}
       <div
         ref={containerRef}
@@ -409,15 +345,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             ))}
         </video>
 
-        {/* Skip Intro Button Overlay */}
-        {isPlaying && currentTime >= 0 && currentTime <= 120 && (
-          <button
-            onClick={() => skipSeconds(85)}
-            className="absolute bottom-20 left-6 z-30 px-4 py-2 rounded-xl bg-black/80 backdrop-blur-md border border-cyan-500/40 text-[#00C2FF] font-bold text-xs flex items-center gap-1.5 shadow-2xl hover:bg-black transition-all cursor-pointer animate-bounce"
-          >
-            <FastForward className="w-4 h-4" /> Skip Intro (+85s)
-          </button>
-        )}
+        {/* Skip Intro Button Removed — no intro skip UI on the player */}
 
         {/* Skip Outro Button Overlay */}
         {isPlaying && duration > 120 && duration - currentTime <= 120 && (
@@ -448,7 +376,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             <div className="absolute bottom-6 left-6 right-6 flex items-center justify-between text-white">
               <div>
                 <span className="text-xs font-bold text-[#00C2FF] uppercase tracking-wider">
-                  Episode {episode.episodeNumber}: {currentServer.name}
+                  Episode {episode.episodeNumber}: Now Playing
                 </span>
                 <h3 className="text-lg font-extrabold text-white">{episode.title}</h3>
               </div>
@@ -464,7 +392,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <div className="absolute inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-20 pointer-events-none">
             <div className="p-3 rounded-2xl bg-black/80 border border-white/10 flex items-center gap-2 text-white text-xs font-semibold shadow-2xl">
               <Loader2 className="w-5 h-5 text-[#00C2FF] animate-spin" />
-              <span>Buffering mirror stream...</span>
+              <span>Buffering...</span>
             </div>
           </div>
         )}
@@ -476,16 +404,16 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               <AlertTriangle className="w-8 h-8" />
             </div>
             <div className="space-y-1 max-w-md">
-              <h3 className="text-lg font-bold text-white">Server Mirror Unavailable</h3>
+              <h3 className="text-lg font-bold text-white">Playback Error</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                {errorMessage} Try switching mirror server using the bar above.
+                {errorMessage} Please try again.
               </p>
             </div>
             <button
               onClick={handleRetry}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#00C2FF] to-[#0047FF] hover:brightness-110 text-black font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
             >
-              <RotateCw className="w-4 h-4" /> Retry Server
+              <RotateCw className="w-4 h-4" /> Retry
             </button>
           </div>
         )}
@@ -679,4 +607,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     </div>
   );
 };
+
+// Memoized: skips re-renders when the drama/episode props haven't changed,
+// which keeps the player (and its timers/Danmaku overlay) free of needless
+// renders while the page around it updates.
+export const VideoPlayer = React.memo(VideoPlayerComponent);
 
