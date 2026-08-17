@@ -22,6 +22,12 @@ async function startServer() {
   // Best-effort sync of seeded users (admin/demo) to MongoDB for persistence.
   seedUsersToMongo();
 
+  // Ensure local uploads directory exists for file uploads
+  const uploadsPath = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsPath)) {
+    fs.mkdirSync(uploadsPath, { recursive: true });
+  }
+
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
   const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -79,6 +85,13 @@ async function startServer() {
       memory: process.memoryUsage()
     });
   });
+
+  // Serve uploaded files (local development)
+  app.use('/uploads', express.static(uploadsPath, {
+    maxAge: '1y',
+    etag: true,
+    lastModified: true
+  }));
 
   // API Routes
   app.use('/api/auth', authRoutes);

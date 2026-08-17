@@ -38,6 +38,10 @@ class R2Storage {
     });
   }
 
+  isInitialized(): boolean {
+    return this.client !== null && this.config !== null;
+  }
+
   private getClient(): S3Client {
     if (!this.client || !this.config) {
       throw new Error('R2Storage not initialized. Call initialize() first.');

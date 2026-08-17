@@ -1,10 +1,16 @@
 import { Router } from 'express';
 import { AuthRequest } from '../middleware/auth.js';
 import { adminMiddleware } from '../middleware/admin.js';
-import { r2Storage, generateDramaVideoKey, generateDramaPosterKey, generateDramaBackdropKey, generateEpisodeThumbnailKey, generateSubtitleKey } from '../../src/lib/r2.js';
+import { r2Storage, generateDramaVideoKey, generateDramaPosterKey, generateDramaBackdropKey, generateEpisodeThumbnailKey, generateSubtitleKey, initializeR2FromEnv } from '../lib/r2.js';
 import { store } from '../config/store.js';
 
+initializeR2FromEnv();
+
 const router = Router();
+
+function isR2Ready(): boolean {
+  return r2Storage.isInitialized();
+}
 
 // All routes require admin authentication
 router.use((req, res, next) => {
@@ -15,6 +21,36 @@ router.use((req, res, next) => {
   }
   next();
 }, adminMiddleware);
+
+// Generate a generic presigned upload URL (no drama context needed)
+router.post('/presign/upload', async (req: AuthRequest, res) => {
+  try {
+    const { fileName, contentType } = req.body;
+
+    if (!fileName || !contentType) {
+      return res.status(400).json({ message: 'fileName and contentType are required' });
+    }
+
+    if (!isR2Ready()) {
+      return res.status(500).json({ message: 'R2 storage is not configured. Use /api/upload/file instead.' });
+    }
+
+    const ext = fileName.includes('.') ? fileName.substring(fileName.lastIndexOf('.')).toLowerCase() : '';
+    const key = `uploads/${Date.now()}_${Math.random().toString(36).slice(2, 10)}${ext}`;
+    const result = await r2Storage.generatePresignedUploadUrl(key, contentType);
+
+    return res.json({
+      message: 'Presigned upload URL generated',
+      uploadUrl: result.uploadUrl,
+      key: result.key,
+      expiresIn: result.expiresIn,
+      publicUrl: r2Storage.getPublicUrl(key),
+    });
+  } catch (error: unknown) {
+    const err = error as Error;
+    return res.status(500).json({ message: err.message || 'Failed to generate upload URL' });
+  }
+});
 
 // Generate presigned upload URL for drama video
 router.post('/presign/video', async (req: AuthRequest, res) => {
