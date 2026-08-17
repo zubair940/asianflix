@@ -107,8 +107,8 @@ export const handleFileUpload = async (req: Request, res: Response) => {
           originalName: req.file.originalname,
           mimetype: req.file.mimetype,
           size: req.file.size,
-          url: result.url,
-          relativeUrl: result.url
+          url: r2Storage.getPublicUrl(key),
+          relativeUrl: r2Storage.getPublicUrl(key)
         });
       } catch (r2Err) {
         return res.status(500).json({
