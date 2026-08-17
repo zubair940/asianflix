@@ -60,10 +60,12 @@ export const adminService = {
   },
 
   uploadFile: async (file: File, onProgress?: (percent: number) => void) => {
+    const isVideo = /^video\//.test(file.type);
+
+    // Path 1: R2 presigned upload straight from the browser to R2.
+    // Works on Vercel serverless (no request body size limit, no local
+    // filesystem writes) and keeps large files out of the server's memory.
     try {
-      // Preferred path: presigned upload straight from the browser to R2.
-      // Works on Vercel serverless (no request body size limit, no local
-      // filesystem writes) and keeps large files out of the server's memory.
       const presign = await apiRequest<{ uploadUrl: string; publicUrl: string; key: string }>('/admin/upload/presigned-url', {
         method: 'POST',
         body: JSON.stringify({ fileName: file.name, fileType: file.type || 'application/octet-stream' })
@@ -88,27 +90,63 @@ export const adminService = {
       return { url: presign.publicUrl, filename: presign.key };
     } catch (err: any) {
       const message = (err as Error).message || '';
-      // R2 is not configured on the server — no fallback exists that would
-      // persist files on serverless, so surface the server's message directly.
-      if (message.includes('not configured') || message.includes('503')) {
+      const r2Missing = message.includes('not configured') || message.includes('503');
+
+      // Path 2: R2 is not configured — try Vercel Blob (free on Hobby, no
+      // credit card). The browser uploads DIRECTLY to Blob via a client token.
+      if (r2Missing) {
+        try {
+          const tokenRes = await apiRequest<{ uploadUrl: string; url: string; token: string; key: string }>('/admin/upload/client-token', {
+            method: 'POST',
+            body: JSON.stringify({ fileName: file.name, fileType: file.type || 'application/octet-stream' })
+          });
+
+          if (!tokenRes.uploadUrl || !tokenRes.token) {
+            throw new Error('Blob not ready');
+          }
+
+          const { upload } = await import('@vercel/blob/client');
+          const blobRes = await upload(tokenRes.uploadUrl, file, {
+            token: tokenRes.token,
+            onUploadProgress: (evt: any) => onProgress?.(Math.round(evt?.progress ?? 0))
+          });
+
+          return { url: blobRes.url, filename: tokenRes.key };
+        } catch (blobErr: any) {
+          const blobMessage = (blobErr as Error).message || '';
+          // Blob is also unavailable — proxy small non-video files through the
+          // server (it uses the same unified store). Videos must never be
+          // proxied: the request body would exceed serverless limits.
+          if (!isVideo) {
+            onProgress?.(0);
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await xhrUpload('/api/upload/file', 'POST', formData, {}, onProgress);
+            if (!res.ok) {
+              throw new Error(res.json?.message || `Upload failed (${res.status})`);
+            }
+            return { url: res.json.url, filename: res.json.filename };
+          }
+          onProgress?.(0);
+          throw new Error(blobMessage || 'No cloud storage configured. Enable Vercel Blob (free, no credit card) or R2 to upload videos.');
+        }
+      }
+
+      // R2 was configured but the upload failed (e.g. bucket CORS) — proxy
+      // small non-video files through the unified server store.
+      if (!isVideo) {
         onProgress?.(0);
-        throw new Error('Cloud storage (R2) is not configured on the server. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET_NAME in Vercel env vars.');
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await xhrUpload('/api/upload/file', 'POST', formData, {}, onProgress);
+        if (!res.ok) {
+          throw new Error(res.json?.message || `Upload failed (${res.status})`);
+        }
+        return { url: res.json.url, filename: res.json.filename };
       }
+
       onProgress?.(0);
-      // Fallback path: proxy through the server. Locally the file is saved to
-      // the uploads/ dir; on serverless platforms it is pushed to R2 when
-      // configured. Never proxy videos or large files — the request body would
-      // exceed serverless function limits (413) before ever reaching R2.
-      if (/^video\//.test(file.type)) {
-        throw new Error(`Video upload to cloud storage failed: ${message || 'presigned upload error'}. Ensure R2 env vars (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME) are set on the server.`);
-      }
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await xhrUpload('/api/upload/file', 'POST', formData, {}, onProgress);
-      if (!res.ok) {
-        throw new Error(res.json?.message || `Upload failed (${res.status})`);
-      }
-      return { url: res.json.url, filename: res.json.filename };
+      throw new Error(`Upload failed: ${message || 'presigned upload error'}`);
     }
   }
 };
