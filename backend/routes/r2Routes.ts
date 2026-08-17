@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { AuthRequest } from '../middleware/auth.js';
+import { AuthRequest, authMiddleware } from '../middleware/auth.js';
 import { adminMiddleware } from '../middleware/admin.js';
 import { r2Storage, generateDramaVideoKey, generateDramaPosterKey, generateDramaBackdropKey, generateEpisodeThumbnailKey, generateSubtitleKey, initializeR2FromEnv } from '../lib/r2.js';
 import { store } from '../config/store.js';
@@ -12,15 +12,8 @@ function isR2Ready(): boolean {
   return r2Storage.isInitialized();
 }
 
-// All routes require admin authentication
-router.use((req, res, next) => {
-  // Check auth first
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Authentication token required' });
-  }
-  next();
-}, adminMiddleware);
+// All routes require admin authentication (cookie or Bearer token)
+router.use(authMiddleware, adminMiddleware);
 
 // Generate a generic presigned upload URL (no drama context needed)
 router.post('/presign/upload', async (req: AuthRequest, res) => {

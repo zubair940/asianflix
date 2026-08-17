@@ -62,11 +62,11 @@ export const adminService = {
   uploadFile: async (file: File, onProgress?: (percent: number) => void) => {
     try {
       // Preferred path: presigned upload straight from the browser to R2.
-      // Works on Vercel serverless (no request body size limit) and keeps
-      // large files (videos) out of the server's memory.
-      const presign = await apiRequest<{ uploadUrl: string; publicUrl: string; key: string }>('/r2/presign/upload', {
+      // Works on Vercel serverless (no request body size limit, no local
+      // filesystem writes) and keeps large files out of the server's memory.
+      const presign = await apiRequest<{ uploadUrl: string; publicUrl: string; key: string }>('/admin/upload/presigned-url', {
         method: 'POST',
-        body: JSON.stringify({ fileName: file.name, contentType: file.type || 'application/octet-stream' })
+        body: JSON.stringify({ fileName: file.name, fileType: file.type || 'application/octet-stream' })
       });
 
       if (!presign.uploadUrl) {
@@ -88,7 +88,9 @@ export const adminService = {
       return { url: presign.publicUrl, filename: presign.key };
     } catch {
       onProgress?.(0);
-      // Fallback path: proxy through the server (saves to local uploads/ dir).
+      // Fallback path: proxy through the server. Locally the file is saved to
+      // the uploads/ dir; on serverless platforms it is pushed to R2 when
+      // configured, otherwise a clear message is returned.
       const formData = new FormData();
       formData.append('file', file);
       const res = await xhrUpload('/api/upload/file', 'POST', formData, {}, onProgress);
