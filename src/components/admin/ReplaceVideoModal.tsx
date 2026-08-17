@@ -39,7 +39,7 @@ export const ReplaceVideoModal: React.FC<ReplaceVideoModalProps> = ({
       }
       setLoading(true);
       try {
-        const uploadRes = await adminService.uploadFile(videoFile);
+        const uploadRes = await adminService.uploadFile(videoFile, undefined, `dramas/${episode.dramaId}/episodes`);
         finalVideoUrl = uploadRes.url;
       } catch (err: any) {
         setLoading(false);

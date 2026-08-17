@@ -6,7 +6,7 @@ import { useToast } from '../../context/ToastContext.js';
 import { SearchableDramaSelect } from './SearchableDramaSelect.js';
 import { Plus, Upload, Loader2, Trash2, Sparkles, X, CheckCircle2, AlertCircle, PlayCircle } from 'lucide-react';
 
-const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
+const MAX_FILE_SIZE = 20 * 1024 * 1024 * 1024; // 20GB (media server supports 2GB+ files)
 
 type RowStatus = 'pending' | 'uploading' | 'uploaded' | 'saving' | 'done' | 'error';
 
@@ -101,7 +101,7 @@ const BulkEpisodeGenerator = memo(function BulkEpisodeGenerator({
       return;
     }
     if (file.size > MAX_FILE_SIZE) {
-      showToast(`"${file.name}" exceeds the 2GB size limit`, 'error');
+      showToast(`"${file.name}" exceeds the 20GB size limit`, 'error');
       return;
     }
     setRows(prev => prev.map(r => {
@@ -121,7 +121,7 @@ const BulkEpisodeGenerator = memo(function BulkEpisodeGenerator({
   const uploadOne = useCallback(async (row: BulkRow): Promise<{ ok: boolean; url: string }> => {
     if (!row.file) return { ok: true, url: row.videoUrl };
     try {
-      const res = await adminService.uploadFile(row.file, p => patchRow(row.id, { progress: p }));
+      const res = await adminService.uploadFile(row.file, p => patchRow(row.id, { progress: p }), `dramas/${row.dramaId}/episodes/episode-${row.episodeNumber}`);
       patchRow(row.id, { videoUrl: res.url, status: 'uploaded', progress: 100 });
       return { ok: true, url: res.url };
     } catch (err: any) {

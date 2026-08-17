@@ -15,7 +15,6 @@ import adminRoutes from './backend/routes/adminRoutes.js';
 import uploadRoutes from './backend/routes/uploadRoutes.js';
 import featureRoutes from './backend/routes/featureRoutes.js';
 import analyticsRoutes from './backend/routes/analyticsRoutes.js';
-import r2Routes from './backend/routes/r2Routes.js';
 import { seedUsersToMongo } from './backend/lib/userStore.js';
 
 async function startServer() {
@@ -31,12 +30,6 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
   const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-
-  // Initialize R2 Storage
-  if (process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME) {
-    const { initializeR2FromEnv } = await import('./backend/lib/r2.js');
-    initializeR2FromEnv();
-  }
 
   // Security middleware
   app.use(helmet({
@@ -102,7 +95,6 @@ async function startServer() {
   app.use('/api/upload', uploadRoutes);
   app.use('/api/features', featureRoutes);
   app.use('/api/analytics', analyticsRoutes);
-  app.use('/api/r2', r2Routes);
 
   // Development vs Production setup
   if (process.env.NODE_ENV !== 'production') {

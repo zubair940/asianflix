@@ -16,6 +16,26 @@ const HeroSection = memo(function HeroSection({ drama }: HeroSectionProps) {
 
   const isSaved = useMemo(() => user?.watchlist.includes(drama.id) ?? false, [user?.watchlist, drama.id]);
 
+  // Preload the hero backdrop so the browser starts fetching it before the
+  // rest of the page parses — the LCP element arrives as fast as possible.
+  useEffect(() => {
+    if (!drama.backdrop) return;
+    const href = drama.backdrop;
+    const existing = document.querySelector(`link[rel="preload"][as="image"][href="${href}"]`);
+    if (!existing) {
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.fetchPriority = 'high';
+      link.href = href;
+      document.head.appendChild(link);
+    }
+    return () => {
+      const link = document.querySelector(`link[rel="preload"][as="image"][href="${href}"]`);
+      if (link && link.parentNode) link.parentNode.removeChild(link);
+    };
+  }, [drama.backdrop]);
+
   const handleWatchlistClick = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();

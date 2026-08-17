@@ -314,6 +314,8 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
         <video
           ref={videoRef}
           src={resolvedVideoUrl}
+          preload="auto"
+          playsInline
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onEnded={() => {

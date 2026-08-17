@@ -53,7 +53,7 @@ export const EditEpisodeModal: React.FC<EditEpisodeModalProps> = ({
 
   const handleFileUpload = async (file: File) => {
     try {
-      const res = await adminService.uploadFile(file);
+      const res = await adminService.uploadFile(file, undefined, `dramas/${episode.dramaId}/episodes`);
       return res.url;
     } catch (err: any) {
       showToast(err.message || 'File upload failed', 'error');

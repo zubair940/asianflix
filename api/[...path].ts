@@ -10,7 +10,6 @@ import adminRoutes from '../backend/routes/adminRoutes.js';
 import uploadRoutes from '../backend/routes/uploadRoutes.js';
 import featureRoutes from '../backend/routes/featureRoutes.js';
 import analyticsRoutes from '../backend/routes/analyticsRoutes.js';
-import r2Routes from '../backend/routes/r2Routes.js';
 import { seedUsersToMongo } from '../backend/lib/userStore.js';
 
 const app = express();
@@ -49,6 +48,5 @@ app.use('/admin', adminRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/features', featureRoutes);
 app.use('/analytics', analyticsRoutes);
-app.use('/r2', r2Routes);
 
 export default app;

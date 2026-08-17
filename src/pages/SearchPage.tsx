@@ -8,6 +8,7 @@ import { SkeletonCard } from '../components/common/SkeletonCard.js';
 import { EmptyState } from '../components/common/EmptyState.js';
 import { Search, SlidersHorizontal, Film, X } from 'lucide-react';
 import { SmartImage } from '../components/common/SmartImage.js';
+import { DramaList } from '../components/homepage/DramaList.js';
 
 export const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -190,11 +191,20 @@ export const SearchPage: React.FC = () => {
                 />
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {dramas.map((drama) => (
-                  <DramaCard key={drama.id} drama={drama} />
-                ))}
-              </div>
+              <>
+                {dramas.length > 40 ? (
+                  // Long result list — virtualized grid keeps scrolling smooth.
+                  <div className="h-[75vh]">
+                    <DramaList dramas={dramas} />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {dramas.map((drama) => (
+                      <DramaCard key={drama.id} drama={drama} />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

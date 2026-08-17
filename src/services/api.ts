@@ -1,22 +1,9 @@
-import { QueryClient } from '@tanstack/react-query';
+import { queryClient } from './queryClient.js';
 import { User, Drama, Episode, WatchHistoryItem, Rating, Avatar, DashboardStats, RealtimeStats, DramaAnalytics, UserEngagement, ContentPerformance, UserRetention, Subtitle, DramaDetailResponse } from '../types.js';
 
 const API_BASE_URL = '/api';
 
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
-      retry: (failureCount, error) => {
-        if (failureCount >= 3) return false;
-        if (error instanceof Error && (error.message.includes('401') || error.message.includes('SESSION_EXPIRED'))) return false;
-        return true;
-      },
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+export { queryClient };
 
 interface RequestConfig extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;

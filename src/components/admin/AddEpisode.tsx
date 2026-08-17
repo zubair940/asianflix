@@ -57,7 +57,14 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
 
     setUploading(true);
     try {
-      const res = await adminService.uploadFile(file);
+      const ext = file.name.match(/\.[a-z0-9]+$/i)?.[0] || '.mp4';
+      const mediaPath =
+        field === 'video'
+          ? `dramas/${dramaId}/episodes/episode-${episodeNumber}${ext}`
+          : field === 'thumb'
+            ? `dramas/${dramaId}/episodes/thumb-${episodeNumber}${ext}`
+            : `dramas/${dramaId}/subtitles/episode-${episodeNumber}${ext}`;
+      const res = await adminService.uploadFile(file, undefined, mediaPath);
       if (field === 'video') setVideoUrl(res.url);
       else if (field === 'sub') setSubtitleUrl(res.url);
       else if (field === 'thumb') setThumbnail(res.url);

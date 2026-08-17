@@ -32,7 +32,7 @@ export const AddDrama: React.FC<AddDramaProps> = ({ onSuccess, onCancel }) => {
 
     setUploading(true);
     try {
-      const res = await adminService.uploadFile(file);
+      const res = await adminService.uploadFile(file, undefined, 'temp');
       if (targetField === 'poster') setPoster(res.url);
       else setBackdrop(res.url);
       showToast('Image uploaded successfully', 'success');

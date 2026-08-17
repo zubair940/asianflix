@@ -40,7 +40,7 @@ export const EditDramaModal: React.FC<EditDramaModalProps> = ({
 
     setUploading(true);
     try {
-      const res = await adminService.uploadFile(file);
+      const res = await adminService.uploadFile(file, undefined, `dramas/${drama.id}/${targetField === 'poster' ? 'poster' : 'banner'}.jpg`);
       if (targetField === 'poster') setPoster(res.url);
       else setBackdrop(res.url);
       showToast('Image uploaded successfully', 'success');
