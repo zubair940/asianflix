@@ -336,8 +336,6 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
           }}
           onError={handleVideoError}
           onClick={togglePlay}
-          preload="auto"
-          playsInline
           className="w-full h-full object-contain cursor-pointer bg-black"
         >
           <source src={resolvedVideoUrl} type="video/mp4" />
