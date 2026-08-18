@@ -35,6 +35,8 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
 
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadField, setUploadField] = useState<'video' | 'sub' | 'thumb' | null>(null);
 
   // Auto-set episode number when drama changes
   const selectedDrama = useMemo(() => dramas.find((d) => d.id === dramaId), [dramas, dramaId]);
@@ -53,9 +55,17 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'video' | 'sub' | 'thumb') => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
+    if (!dramaId) {
+      showToast('Select a drama first, then choose the file', 'error');
+      return;
+    }
+
     setUploading(true);
+    setUploadField(field);
+    setUploadProgress(0);
     try {
       const ext = file.name.match(/\.[a-z0-9]+$/i)?.[0] || '.mp4';
       const mediaPath =
@@ -64,15 +74,17 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
           : field === 'thumb'
             ? `dramas/${dramaId}/episodes/thumb-${episodeNumber}${ext}`
             : `dramas/${dramaId}/subtitles/episode-${episodeNumber}${ext}`;
-      const res = await adminService.uploadFile(file, undefined, mediaPath);
+      const res = await adminService.uploadFile(file, (p) => setUploadProgress(p), mediaPath);
       if (field === 'video') setVideoUrl(res.url);
       else if (field === 'sub') setSubtitleUrl(res.url);
       else if (field === 'thumb') setThumbnail(res.url);
       showToast(`File "${file.name}" uploaded successfully`, 'success');
     } catch (err: any) {
-      showToast(err.message || 'File upload error', 'error');
+      showToast((err && err.message) || 'File upload error', 'error');
     } finally {
       setUploading(false);
+      setUploadField(null);
+      setUploadProgress(null);
     }
   };
 
@@ -223,11 +235,33 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
                 onChange={(e) => setVideoUrl(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-100 outline-none focus:border-rose-500"
               />
-              <label className="px-3 py-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl text-slate-200 cursor-pointer flex items-center gap-1 shrink-0 font-semibold">
-                <Upload className="w-3.5 h-3.5" /> Upload MP4
-                <input type="file" accept="video/mp4,video/mkv,video/webm" onChange={(e) => handleFileUpload(e, 'video')} className="hidden" />
+              <label className="px-3 py-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl text-slate-200 cursor-pointer flex items-center gap-1 shrink-0 font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
+                {uploading && uploadField === 'video' ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> {uploadProgress ?? 0}%
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-3.5 h-3.5" /> Upload MP4
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => handleFileUpload(e, 'video')}
+                  className="hidden"
+                  disabled={uploading}
+                />
               </label>
             </div>
+            {uploading && uploadField === 'video' && (
+              <div className="space-y-1 mt-1">
+                <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-rose-500 to-pink-500 transition-all duration-200" style={{ width: `${uploadProgress ?? 0}%` }} />
+                </div>
+                <span className="text-[10px] text-rose-300">{uploadProgress ?? 0}% uploaded to media server</span>
+              </div>
+            )}
             <p className="text-[10px] text-slate-500">Supports MP4, MKV, WebM, HLS (.m3u8), DASH (.mpd)</p>
           </div>
 
@@ -259,9 +293,14 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
                   onChange={(e) => setSubtitleUrl(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-100 outline-none"
                 />
-                <label className="px-2.5 py-1.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl text-slate-200 cursor-pointer flex items-center gap-1 shrink-0 font-medium">
-                  <Upload className="w-3 h-3" /> SRT
-                  <input type="file" accept=".srt,.vtt" onChange={(e) => handleFileUpload(e, 'sub')} className="hidden" />
+                <label className="px-2.5 py-1.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl text-slate-200 cursor-pointer flex items-center gap-1 shrink-0 font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                  {uploading && uploadField === 'sub' ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Upload className="w-3 h-3" />
+                  )}
+                  {uploading && uploadField === 'sub' ? `${uploadProgress ?? 0}%` : 'SRT'}
+                  <input type="file" accept=".srt,.vtt" onChange={(e) => handleFileUpload(e, 'sub')} className="hidden" disabled={uploading} />
                 </label>
               </div>
             </div>
@@ -279,9 +318,17 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
                 onChange={(e) => setThumbnail(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-100 outline-none focus:border-rose-500"
               />
-              <label className="px-3 py-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl text-slate-200 cursor-pointer flex items-center gap-1 shrink-0 font-semibold">
-                <Upload className="w-3.5 h-3.5" /> File
-                <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'thumb')} className="hidden" />
+              <label className="px-3 py-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl text-slate-200 cursor-pointer flex items-center gap-1 shrink-0 font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
+                {uploading && uploadField === 'thumb' ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> {uploadProgress ?? 0}%
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-3.5 h-3.5" /> File
+                  </>
+                )}
+                <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'thumb')} className="hidden" disabled={uploading} />
               </label>
             </div>
             <p className="text-[10px] text-slate-500">Recommended 16:9 aspect ratio, min 1280x720</p>

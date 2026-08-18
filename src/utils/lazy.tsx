@@ -1,25 +1,21 @@
-import { lazy, ComponentType } from 'react';
+import { lazy, ComponentType, LazyExoticComponent } from 'react';
 
 export function createLazyComponent<T extends ComponentType<any>>(
-  importFn: () => Promise<{ default: T } | T>,
+  importFn: () => Promise<any>,
   name?: string
-) {
-  const LazyComponent = lazy(async () => {
+): LazyExoticComponent<T> {
+  const LazyComponent = lazy(async (): Promise<{ default: T }> => {
     const module = await importFn();
-    // Handle both default export and named export
-    if ('default' in module) {
-      return { default: module.default };
-    }
-    // Find the first exported React component
-    const componentKeys = Object.keys(module).filter(
-      (key) => typeof module[key] === 'function' || typeof module[key] === 'object'
+    const withDefault = module as { default?: T };
+    if (withDefault.default) return { default: withDefault.default };
+    const key = Object.keys(module).find(
+      (k) => typeof module[k] === 'function' || typeof module[k] === 'object'
     );
-    const defaultExport = componentKeys[0] ? module[componentKeys[0]] : Object.values(module)[0];
-    return { default: defaultExport as T };
+    return { default: (key ? module[key] : null) as T };
   });
 
   if (name) {
-    LazyComponent.displayName = `Lazy(${name})`;
+    Object.defineProperty(LazyComponent, 'displayName', { value: `Lazy(${name})` });
   }
 
   return LazyComponent;

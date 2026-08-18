@@ -257,7 +257,7 @@ const BulkEpisodeGenerator = memo(function BulkEpisodeGenerator({
           <div className="col-span-3">Drama *</div>
           <div className="col-span-1">Ep #</div>
           <div className="col-span-3">Title</div>
-          <div className="col-span-3">Video File (MP4, max 2GB)</div>
+          <div className="col-span-3">Video File (MP4, max 20GB)</div>
           <div className="col-span-1">Status</div>
         </div>
 

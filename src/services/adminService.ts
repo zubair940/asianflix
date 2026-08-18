@@ -6,7 +6,8 @@ function xhrUpload(
   method: string,
   file: File | FormData,
   headers: Record<string, string>,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  timeout = 600000
 ): Promise<{ ok: boolean; status: number; json: any }> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -33,8 +34,8 @@ function xhrUpload(
       reject(new Error(`Network error during upload (status: ${xhr.status || 0}). Check CORS, tunnel, or network.`));
     };
     xhr.onabort = () => reject(new Error('Upload aborted'));
-    xhr.ontimeout = () => reject(new Error('Upload timeout'));
-    xhr.timeout = 300000; // 5 min timeout
+    xhr.ontimeout = () => reject(new Error(`Upload timeout after ${Math.round(timeout / 1000)}s — the file may be too large or the connection too slow`));
+    xhr.timeout = timeout;
     xhr.send(file);
   });
 }
@@ -104,7 +105,7 @@ export const adminService = {
       if (mediaPath) formData.append('path', mediaPath);
       
       // Don't set any headers for FormData - browser sets Content-Type with boundary
-      const res = await xhrUpload(`${mediaServerUrl}/api/upload`, 'POST', formData, {}, onProgress);
+      const res = await xhrUpload(`${mediaServerUrl}/api/upload`, 'POST', formData, {}, onProgress, isVideo ? 600000 : 300000);
       console.log(`[uploadFile] response:`, res);
       if (!res.ok) {
         const msg = res.json?.message || res.json?.rawResponse || `Upload failed (${res.status})`;

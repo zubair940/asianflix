@@ -6,7 +6,7 @@
 // Safe to run repeatedly: createIndex is idempotent. Skips gracefully when
 // MONGODB_URI is not set (app runs on the JSON store in that case).
 import 'dotenv/config';
-import { MongoClient } from 'mongodb';
+import { MongoClient, IndexSpecification } from 'mongodb';
 
 const uri = process.env.MONGODB_URI;
 
@@ -45,7 +45,7 @@ async function main() {
         for (const spec of specs) {
           const options: any = { background: true };
           if (collection === 'users' && spec.email !== undefined) options.unique = true;
-          const name = await col.createIndex(spec, options);
+          const name = await col.createIndex(spec as IndexSpecification, options);
           console.log(`  ${collection}: ${JSON.stringify(spec)} -> ${name} ${options.unique ? '(unique)' : ''}`);
         }
       } catch (error: unknown) {

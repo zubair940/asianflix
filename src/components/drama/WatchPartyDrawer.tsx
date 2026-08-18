@@ -214,7 +214,7 @@ export const WatchPartyDrawer: React.FC<WatchPartyDrawerProps> = ({
 
           {/* Messages Container */}
           <div className="flex-1 p-4 overflow-y-auto space-y-3">
-            {room.messages.map((msg) => (
+            {(room.messages || []).map((msg) => (
               <div
                 key={msg.id}
                 className={`flex gap-2.5 ${msg.userId === user?.id ? 'flex-row-reverse' : ''}`}

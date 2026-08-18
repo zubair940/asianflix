@@ -12,6 +12,7 @@ import { ToastNotifications } from './components/common/ToastNotifications.js';
 import { ProtectedRoute } from './components/common/ProtectedRoute.js';
 import { AdminRoute } from './components/admin/AdminRoute.js';
 import { LoadingSpinner } from './components/common/LoadingSpinner.js';
+import { ErrorBoundary } from './components/common/ErrorBoundary.js';
 import { queryClient } from './services/api.js';
 
 const Home = lazy(() => import('./pages/Home').then(m => ({ default: m.Home })));
@@ -30,7 +31,9 @@ const PageSkeleton = () => (
 );
 
 const LazyWrapper = ({ children }: { children: React.ReactNode }) => (
-  <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
+  <Suspense fallback={<PageSkeleton />}>
+    <ErrorBoundary>{children}</ErrorBoundary>
+  </Suspense>
 );
 
 export function App() {
@@ -41,7 +44,8 @@ export function App() {
           <AuthProvider>
             <ThemeProvider>
               <PlayerProvider>
-                <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col font-sans selection:bg-cyan-400 selection:text-gray-950">
+                <ErrorBoundary>
+                  <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col font-sans selection:bg-cyan-400 selection:text-gray-950">
                   <Navbar />
                   <main className="flex-1">
                     <Routes>
@@ -139,7 +143,8 @@ export function App() {
                   </main>
                   <Footer />
                   <ToastNotifications />
-                </div>
+                  </div>
+                </ErrorBoundary>
               </PlayerProvider>
             </ThemeProvider>
           </AuthProvider>

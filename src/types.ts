@@ -103,6 +103,7 @@ export interface WatchPartyRoom {
   isPlaying: boolean;
   participantsCount: number;
   createdAt: string;
+  messages: WatchPartyMessage[];
 }
 
 export interface UserCollection {
