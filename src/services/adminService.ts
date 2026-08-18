@@ -11,6 +11,7 @@ function xhrUpload(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open(method, url, true);
+    // Don't set any headers for FormData - browser sets Content-Type with boundary automatically
     Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
@@ -22,12 +23,18 @@ function xhrUpload(
       try {
         json = JSON.parse(xhr.responseText);
       } catch {
-        json = null;
+        json = { rawResponse: xhr.responseText };
       }
+      console.log(`[xhrUpload] ${method} ${url} → ${xhr.status}`, json);
       resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, json });
     };
-    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.onerror = () => {
+      console.error(`[xhrUpload] NETWORK ERROR: ${method} ${url}`);
+      reject(new Error(`Network error during upload (status: ${xhr.status || 0}). Check CORS, tunnel, or network.`));
+    };
     xhr.onabort = () => reject(new Error('Upload aborted'));
+    xhr.ontimeout = () => reject(new Error('Upload timeout'));
+    xhr.timeout = 300000; // 5 min timeout
     xhr.send(file);
   });
 }
@@ -89,21 +96,24 @@ export const adminService = {
     const isVideo = /^video\//.test(file.type);
     const mediaServerUrl = await adminService._getMediaServerUrl();
 
+    console.log(`[uploadFile] file=${file.name} (${file.type}, ${file.size} bytes), mediaPath=${mediaPath}, mediaServerUrl=${mediaServerUrl}`);
+
     if (mediaServerUrl) {
       const formData = new FormData();
       formData.append('file', file);
       if (mediaPath) formData.append('path', mediaPath);
       
-      // Use credentials: 'include' for cookies if needed, but for cross-origin
-      // tunnel we don't send cookies. The browser will set the correct
-      // Content-Type with boundary automatically for FormData.
+      // Don't set any headers for FormData - browser sets Content-Type with boundary
       const res = await xhrUpload(`${mediaServerUrl}/api/upload`, 'POST', formData, {}, onProgress);
+      console.log(`[uploadFile] response:`, res);
       if (!res.ok) {
-        throw new Error(res.json?.message || `Upload failed (${res.status})`);
+        const msg = res.json?.message || res.json?.rawResponse || `Upload failed (${res.status})`;
+        throw new Error(msg);
       }
       return { url: res.json.url, filename: res.json.filename };
     }
 
+    console.warn('[uploadFile] Media server URL not configured, falling back to server proxy');
     if (!isVideo) {
       const formData = new FormData();
       formData.append('file', file);

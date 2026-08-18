@@ -121,20 +121,28 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   const allowed = CORS_ORIGIN === '*' ? true : CORS_ORIGIN.split(',').map((s) => s.trim());
   
-  if (allowed === true || (Array.isArray(allowed) && origin && allowed.includes(origin))) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  } else if (allowed === true) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
+  // Always echo the origin for Cloudflare Tunnel compatibility
+  const allowOrigin = (allowed === true || (Array.isArray(allowed) && origin && allowed.includes(origin))) 
+    ? (origin || '*') 
+    : '*';
   
+  res.setHeader('Access-Control-Allow-Origin', allowOrigin);
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Range, Content-Range');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Range, Content-Range, Content-Length');
   res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+  res.setHeader('Access-Control-Max-Age', '86400');
   
   if (req.method === 'OPTIONS') {
+    log(`CORS PREFLIGHT: origin=${origin}, allowed=${allowOrigin}`);
     return res.sendStatus(204);
   }
+  next();
+});
+
+// Debug: Log all headers for upload requests
+app.use('/api/upload', (req, res, next) => {
+  log(`UPLOAD HEADERS: origin=${req.headers.origin}, content-type=${req.headers['content-type']}, content-length=${req.headers['content-length']}`);
   next();
 });
 
@@ -162,6 +170,12 @@ app.get('/health', (_req, res) => {
     dir: MEDIA_DIR,
     uptime: process.uptime(),
   });
+});
+
+// POST /api/test-upload — simple JSON echo to test tunnel + CORS without multer
+app.post('/api/test-upload', express.json({ limit: '10mb' }), (req, res) => {
+  log(`TEST-UPLOAD: received ${JSON.stringify(req.body).slice(0, 200)}`);
+  res.json({ ok: true, received: req.body, timestamp: Date.now() });
 });
 
 // POST /api/upload — multipart field "file" (+ optional "path" folder hint).
