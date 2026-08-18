@@ -41,6 +41,7 @@ import multer from 'multer';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -51,7 +52,9 @@ const PUBLIC_URL = (process.env.MEDIA_PUBLIC_URL || `http://localhost:${PORT}`).
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 const LOG_FILE = path.resolve(process.env.MEDIA_LOG || path.join(MEDIA_DIR, 'logs', 'media-server.log'));
 const TEMP_DIR = path.join(MEDIA_DIR, 'temp');
+const CHUNK_DIR = path.join(__dirname, '.chunks'); // outside MEDIA_DIR so parts are never publicly served
 const MAX_FILE_SIZE = 20 * 1024 * 1024 * 1024; // 20 GB per file (2GB+ supported)
+const CHUNK_MAX_SIZE = 100 * 1024 * 1024; // per-chunk cap — Cloudflare's free tunnel limit is ~100MB per request
 
 const ALLOWED_EXT = /\.(jpe?g|png|webp|avif|gif|mp4|webm|mkv|mov|vtt|srt)$/i;
 const MB = 1024 * 1024;
@@ -162,6 +165,43 @@ const upload = multer({
   limits: { fileSize: MAX_FILE_SIZE },
 });
 
+// Chunked-upload storage — each chunk lands in .chunks/<uploadId>/<index>.part.
+// Multipart fields (uploadId, index, total, path) MUST be appended BEFORE the
+// file so multer sees them while the file part is being streamed.
+const chunkUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, _file, cb) => {
+      const uploadId = String((req.body as any)?.uploadId || 'upload').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64);
+      const dir = path.join(CHUNK_DIR, uploadId);
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+      } catch (err) {
+        cb(err as Error, dir);
+      }
+    },
+    filename: (req, _file, cb) => {
+      const index = Number((req.body as any)?.index);
+      cb(null, `${String(Number.isFinite(index) ? index : 0).padStart(6, '0')}.part`);
+    },
+  }),
+  limits: { fileSize: CHUNK_MAX_SIZE },
+});
+
+function sweepStaleChunks() {
+  if (!fs.existsSync(CHUNK_DIR)) return;
+  const cutoff = Date.now() - 3 * 60 * 60 * 1000;
+  for (const entry of fs.readdirSync(CHUNK_DIR)) {
+    const dir = path.join(CHUNK_DIR, entry);
+    try {
+      if (fs.statSync(dir).mtimeMs < cutoff) fs.rmSync(dir, { recursive: true, force: true });
+    } catch {
+      /* keep sweeping */
+    }
+  }
+}
+setInterval(sweepStaleChunks, 60 * 60 * 1000);
+
 // GET /health — sanity check, also reachable through the tunnel.
 app.get('/health', (_req, res) => {
   res.json({
@@ -220,6 +260,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     log(`UPLOAD success: ${fileUrl}`);
     
     return res.status(201).json({
+      ok: true,
       message: 'File uploaded to local media server',
       provider: 'local-media-server',
       filename: path.basename(relative),
@@ -253,6 +294,119 @@ app.use(
   })
 );
 
+// --- Chunked upload endpoints (large videos that exceed Cloudflare's free
+// tunnel per-request body cap). The browser slices the file into <=100MB
+// parts, uploads them one at a time, then calls /api/upload/complete which
+// concatenates them in order into the final file.
+
+// POST /api/upload/chunk — multipart fields BEFORE "file":
+//   uploadId: client-generated uuid for this upload session
+//   index:    0-based chunk number
+//   total:    total chunk count (informational)
+//   path:     optional final destination hint (same rules as /api/upload)
+app.post('/api/upload/chunk', chunkUpload.single('file'), (req, res) => {
+  const file = req.file;
+  const uploadId = String(req.body.uploadId || 'upload').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64);
+  const index = Number(req.body.index);
+  log(`CHUNK uploadId=${uploadId} index=${index} size=${file ? file.size : 0} total=${req.body.total || 1}`);
+
+  if (!file) {
+    return res.status(400).json({ ok: false, message: 'No chunk received (multipart field must be named "file")' });
+  }
+
+  // multer.diskStorage already placed the chunk at .chunks/<uploadId>/<index>.part
+  const padded = `${String(Number.isFinite(index) ? index : 0).padStart(6, '0')}.part`;
+  const stored = path.join(CHUNK_DIR, uploadId, padded);
+  if (!fs.existsSync(stored)) {
+    log(`CHUNK error: chunk not stored at ${stored}`);
+    return res.status(500).json({ ok: false, message: 'Failed to store chunk' });
+  }
+  return res.status(201).json({ ok: true, uploadId, index: Number.isFinite(index) ? index : 0 });
+});
+
+// GET /api/upload/chunks/:uploadId — which indexes are already on disk.
+// Lets a failed upload resume from where it stopped instead of restarting.
+app.get('/api/upload/chunks/:uploadId', (req, res) => {
+  const uploadId = String(req.params.uploadId || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64);
+  const dir = path.join(CHUNK_DIR, uploadId);
+  const indexes = fs.existsSync(dir)
+    ? fs
+        .readdirSync(dir)
+        .filter((f) => f.endsWith('.part'))
+        .map((f) => parseInt(f, 10))
+        .filter((n) => Number.isFinite(n))
+    : [];
+  return res.json({ ok: true, uploadId, indexes });
+});
+
+// POST /api/upload/complete — JSON body { uploadId, filename, path? }.
+// Concatenates all received chunks in index order into the final file.
+app.post('/api/upload/complete', express.json({ limit: '1mb' }), async (req, res) => {
+  const uploadId = String(req.body.uploadId || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64);
+  const filename = String(req.body.filename || 'video.mp4');
+  const targetHint = typeof req.body.path === 'string' ? req.body.path : undefined;
+  const dir = path.join(CHUNK_DIR, uploadId);
+
+  if (!uploadId || !fs.existsSync(dir)) {
+    return res.status(404).json({ ok: false, message: 'No chunks found for this uploadId' });
+  }
+
+  const parts = fs.readdirSync(dir).filter((f) => f.endsWith('.part')).sort();
+  if (parts.length === 0) {
+    fs.rmSync(dir, { recursive: true, force: true });
+    return res.status(404).json({ ok: false, message: 'No chunks found for this uploadId' });
+  }
+
+  try {
+    const ext = sanitizeExt(filename);
+    if (!ALLOWED_EXT.test(ext || '.')) {
+      fs.rmSync(dir, { recursive: true, force: true });
+      return res.status(400).json({
+        ok: false,
+        message: `Unsupported file type "${ext || '?'}". Allowed: jpeg, png, webp, avif, gif, mp4, webm, mkv, mov, vtt, srt`,
+      });
+    }
+
+    const relative = resolveTarget({ originalname: filename } as Express.Multer.File, targetHint);
+    const finalPath = path.join(MEDIA_DIR, relative);
+    if (!finalPath.startsWith(MEDIA_DIR + path.sep)) {
+      fs.rmSync(dir, { recursive: true, force: true });
+      return res.status(400).json({ ok: false, message: 'Invalid path' });
+    }
+
+    fs.mkdirSync(path.dirname(finalPath), { recursive: true });
+    const start = Date.now();
+    for (const part of parts) {
+      await pipeline(
+        fs.createReadStream(path.join(dir, part)),
+        fs.createWriteStream(finalPath, { flags: 'a' })
+      );
+    }
+    fs.rmSync(dir, { recursive: true, force: true });
+
+    const size = fs.statSync(finalPath).size;
+    const sizeMB = (size / MB).toFixed(2);
+    const fileUrl = `${PUBLIC_URL}/uploads/${relative.split('/').map(encodeURIComponent).join('/')}`;
+    log(`CHUNK assemble complete: ${parts.length} parts (${sizeMB} MB) -> ${relative} (${Date.now() - start}ms)`);
+
+    return res.status(201).json({
+      ok: true,
+      message: 'File uploaded to local media server',
+      provider: 'local-media-server',
+      filename: path.basename(relative),
+      originalName: filename,
+      size,
+      url: fileUrl,
+      relativeUrl: `/uploads/${relative}`,
+    });
+  } catch (error: unknown) {
+    const err = error as Error;
+    fs.rmSync(dir, { recursive: true, force: true });
+    log(`CHUNK complete FAILED: ${err.message}`);
+    return res.status(500).json({ ok: false, message: err.message || 'Failed to assemble file' });
+  }
+});
+
 // Central error handler — turns multer failures into clean JSON responses.
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
@@ -273,6 +427,7 @@ app.listen(PORT, () => {
   log(`AsianFlix local media server started`);
   log(`  Local:     http://localhost:${PORT}/health`);
   log(`  Uploads:   POST ${PUBLIC_URL}/api/upload (multipart "file", optional "path")`);
+  log(`  Chunked:   POST /api/upload/chunk + POST /api/upload/complete (large videos, auto-used by the admin panel)`);
   log(`  Media dir: ${MEDIA_DIR}`);
   log(`  Log file:  ${LOG_FILE}`);
   log(`  Size cap:  ${MAX_FILE_SIZE / 1024 / 1024 / 1024}GB per file (2GB+ supported)`);

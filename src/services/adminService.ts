@@ -1,10 +1,26 @@
 import { apiRequest } from './api.js';
 import { DashboardStats, User } from '../types.js';
 
+// Chunk size for large files — must stay well under Cloudflare's free tunnel
+// per-request body cap (~100MB), otherwise the tunnel kills the request
+// mid-upload ("progress 100% then Network error").
+const CHUNK_SIZE = 50 * 1024 * 1024; // 50 MB
+
+function newUploadId(): string {
+  try {
+    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+      return globalThis.crypto.randomUUID();
+    }
+  } catch {
+    /* fall through */
+  }
+  return `up_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function xhrUpload(
   url: string,
   method: string,
-  file: File | FormData,
+  body: File | FormData | string | null,
   headers: Record<string, string>,
   onProgress?: (percent: number) => void,
   timeout = 600000
@@ -36,7 +52,7 @@ function xhrUpload(
     xhr.onabort = () => reject(new Error('Upload aborted'));
     xhr.ontimeout = () => reject(new Error(`Upload timeout after ${Math.round(timeout / 1000)}s — the file may be too large or the connection too slow`));
     xhr.timeout = timeout;
-    xhr.send(file);
+    xhr.send(body as any);
   });
 }
 
@@ -82,6 +98,70 @@ export const adminService = {
     });
   },
 
+  // Chunked upload for large files: slices into <=50MB parts so every single
+  // request stays under Cloudflare's free tunnel body cap, then asks the media
+  // server to concatenate the parts. Failed chunks resume from where they
+  // stopped (the server keeps already-received parts).
+  _uploadChunked: async (
+    file: File,
+    base: string,
+    mediaPath: string | undefined,
+    onProgress?: (percent: number) => void
+  ) => {
+    const uploadId = newUploadId();
+    const total = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
+
+    const existingIndexes = async (): Promise<number[]> => {
+      try {
+        const res = await xhrUpload(`${base}/api/upload/chunks/${uploadId}`, 'GET', null, {});
+        return Array.isArray(res.json?.indexes) ? res.json.indexes : [];
+      } catch {
+        return [];
+      }
+    };
+
+    let done = 0;
+    try {
+      done = (await existingIndexes()).length;
+    } catch {
+      done = 0;
+    }
+    if (done > 0) console.log(`[uploadChunked] resuming chunked upload ${uploadId} from chunk ${done}`);
+
+    for (let i = done; i < total; i++) {
+      const start = i * CHUNK_SIZE;
+      const blob = file.slice(start, Math.min(start + CHUNK_SIZE, file.size));
+      const formData = new FormData();
+      formData.append('uploadId', uploadId);
+      formData.append('index', String(i));
+      formData.append('total', String(total));
+      if (mediaPath) formData.append('path', mediaPath);
+      formData.append('file', blob, file.name);
+
+      const chunkProgress = (p: number) => onProgress && onProgress(Math.round(((i + p / 100) / total) * 100));
+      let res: { ok: boolean; status: number; json: any };
+      try {
+        res = await xhrUpload(`${base}/api/upload/chunk`, 'POST', formData, {}, chunkProgress);
+      } catch {
+        res = await xhrUpload(`${base}/api/upload/chunk`, 'POST', formData, {}, chunkProgress);
+      }
+      if (!res.ok) {
+        throw new Error(res.json?.message || `Chunk ${i + 1}/${total} failed (${res.status})`);
+      }
+    }
+
+    const completeRes = await xhrUpload(
+      `${base}/api/upload/complete`,
+      'POST',
+      JSON.stringify({ uploadId, filename: file.name, path: mediaPath }),
+      { 'Content-Type': 'application/json' }
+    );
+    if (!completeRes.ok) {
+      throw new Error(completeRes.json?.message || `Finalizing upload failed (${completeRes.status})`);
+    }
+    return { url: completeRes.json.url, filename: completeRes.json.filename };
+  },
+
   // Uploads a file DIRECTLY from the browser to the local media server (your
   // PC, exposed via Cloudflare Tunnel). NO cloud storage is used.
   //
@@ -100,6 +180,10 @@ export const adminService = {
     console.log(`[uploadFile] file=${file.name} (${file.type}, ${file.size} bytes), mediaPath=${mediaPath}, mediaServerUrl=${mediaServerUrl}`);
 
     if (mediaServerUrl) {
+      if (file.size > CHUNK_SIZE) {
+        return adminService._uploadChunked(file, mediaServerUrl, mediaPath, onProgress);
+      }
+
       const formData = new FormData();
       formData.append('file', file);
       if (mediaPath) formData.append('path', mediaPath);
