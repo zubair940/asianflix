@@ -280,16 +280,23 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   }
 });
 
-// Static media: Range/206 (seekable), ETag + Last-Modified (revalidation),
-// 1h browser cache so a replaced file (same name) goes stale quickly.
+// Static media: Range/206 (seekable), ETag + Last-Modified (revalidation).
+// UUID-named files never change -> immutable 1-year cache. Explicitly named
+// files (episode-1.mp4 etc.) CAN be replaced -> short cache + revalidation.
 app.use(
   '/uploads',
   express.static(MEDIA_DIR, {
     maxAge: '1h',
     etag: true,
     lastModified: true,
-    setHeaders: (res) => {
+    setHeaders: (res, filePath) => {
       res.setHeader('Accept-Ranges', 'bytes');
+      const base = path.basename(filePath);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\./i.test(base);
+      res.setHeader(
+        'Cache-Control',
+        isUuid ? 'public, max-age=31536000, immutable' : 'public, max-age=3600, must-revalidate'
+      );
     },
   })
 );
@@ -376,11 +383,12 @@ app.post('/api/upload/complete', express.json({ limit: '1mb' }), async (req, res
 
     fs.mkdirSync(path.dirname(finalPath), { recursive: true });
     const start = Date.now();
-    for (const part of parts) {
-      await pipeline(
-        fs.createReadStream(path.join(dir, part)),
-        fs.createWriteStream(finalPath, { flags: 'a' })
-      );
+    // True move: rename the first part into place (no byte copy), then append
+    // the remaining parts via streams. At no point do two full copies exist.
+    const firstPart = path.join(dir, parts[0]);
+    fs.renameSync(firstPart, finalPath);
+    for (const part of parts.slice(1)) {
+      await pipeline(fs.createReadStream(path.join(dir, part)), fs.createWriteStream(finalPath, { flags: 'a' }));
     }
     fs.rmSync(dir, { recursive: true, force: true });
 

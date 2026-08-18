@@ -9,6 +9,49 @@ interface RequestConfig extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
 }
 
+// ---------------------------------------------------------------------------
+// Session refresh: the access token (httpOnly cookie) lives only 60 minutes.
+// On any 401 from a non-auth endpoint we silently refresh it once and retry
+// the request, so long admin workflows (video uploads) never fail mid-way
+// with "Invalid or expired token". All concurrent 401s share one refresh.
+// ---------------------------------------------------------------------------
+let refreshPromise: Promise<boolean> | null = null;
+
+function isAuthEndpoint(endpoint: string): boolean {
+  return /^\/auth(\/(login|register|refresh|logout))?(\/|$)/.test(endpoint);
+}
+
+async function refreshSession(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = fetch('/api/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+    })
+      .then((res) => res.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+async function parseResponse<T>(response: Response): Promise<T> {
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text();
+    throw new Error(`API returned non-JSON response: ${text.slice(0, 200)}`);
+  }
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.message || `API error (${response.status})`);
+  }
+
+  return data as T;
+}
+
 export async function apiRequest<T>(
   endpoint: string,
   config: RequestConfig = {}
@@ -32,28 +75,26 @@ export async function apiRequest<T>(
     headers['Content-Type'] = 'application/json';
   }
 
-  const response = await fetch(url.toString(), {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  const doFetch = () =>
+    fetch(url.toString(), {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
 
-  const contentType = response.headers.get('content-type');
-  if (!contentType || !contentType.includes('application/json')) {
-    const text = await response.text();
-    throw new Error(`API returned non-JSON response: ${text.slice(0, 200)}`);
-  }
+  let response = await doFetch();
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error(data?.message || 'SESSION_EXPIRED');
+  if (response.status === 401 && !isAuthEndpoint(endpoint)) {
+    const refreshed = await refreshSession();
+    if (refreshed) {
+      response = await doFetch();
+    } else {
+      window.dispatchEvent(new CustomEvent('auth:session-expired'));
+      throw new Error('SESSION_EXPIRED');
     }
-    throw new Error(data.message || `API error (${response.status})`);
   }
 
-  return data as T;
+  return parseResponse<T>(response);
 }
 
 export const api = {

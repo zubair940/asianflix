@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext.js';
 import { userService } from '../../services/userService.js';
 import { featureService } from '../../services/featureService.js';
 import { formatTime, getMediaUrl } from '../../utils/helpers.js';
+import Hls from 'hls.js';
 import { DanmakuOverlay } from './DanmakuOverlay.js';
 import { WatchPartyDrawer } from './WatchPartyDrawer.js';
 import { OfflineDownloadModal } from './OfflineDownloadModal.js';
@@ -74,6 +75,52 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
 
   // Single source: the episode's direct video URL (no mirror servers)
   const resolvedVideoUrl = getMediaUrl(episode.videoUrl);
+  // HLS manifests (.m3u8) are played through hls.js for adaptive bitrate.
+  const isHls = /\.m3u8([?#].*)?$/i.test(resolvedVideoUrl || '');
+
+  // HLS playback (adaptive bitrate streaming) when the source is a manifest.
+  // Plain MP4/WebM files stay on the native <video> element with Range/206
+  // byte streaming from the media server.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!isHls || !video || !Hls.isSupported()) return;
+
+    const hls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: false,
+      maxBufferLength: 30,
+      maxMaxBufferLength: 60,
+      backBufferLength: 30,
+    });
+
+    hls.loadSource(resolvedVideoUrl);
+    hls.attachMedia(video);
+
+    let fatalAttempts = 0;
+    hls.on(Hls.Events.ERROR, (_event, data) => {
+      if (!data.fatal) return;
+      fatalAttempts += 1;
+      if (fatalAttempts > 3) {
+        setHasError(true);
+        setIsBuffering(false);
+        setIsPlaying(false);
+        setErrorMessage('Stream failed after multiple retries.');
+        return;
+      }
+      if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+        hls.startLoad();
+      } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+        hls.recoverMediaError();
+      } else {
+        setHasError(true);
+        setErrorMessage('Stream error — unsupported format.');
+      }
+    });
+
+    return () => {
+      hls.destroy();
+    };
+  }, [isHls, resolvedVideoUrl]);
 
   // Danmaku state
   const [danmakuEnabled, setDanmakuEnabled] = useState(true);
@@ -313,8 +360,8 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
         {/* HTML5 Video Element */}
         <video
           ref={videoRef}
-          src={resolvedVideoUrl}
-          preload="auto"
+          src={isHls ? undefined : resolvedVideoUrl}
+          preload="metadata"
           playsInline
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
@@ -338,7 +385,7 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
           onClick={togglePlay}
           className="w-full h-full object-contain cursor-pointer bg-black"
         >
-          <source src={resolvedVideoUrl} type="video/mp4" />
+          {!isHls && <source src={resolvedVideoUrl} type="video/mp4" />}
           {episode.subtitles &&
             episode.subtitles.map((sub: Subtitle) => (
               <track

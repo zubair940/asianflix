@@ -27,7 +27,7 @@ function generateTokens(user: User) {
   const accessToken = jwt.sign(
     { id: user.id, role: user.role },
     JWT_SECRET,
-    { expiresIn: '15m' }
+    { expiresIn: '60m' }
   );
   const refreshToken = jwt.sign(
     { id: user.id, type: 'refresh' },

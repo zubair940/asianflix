@@ -70,6 +70,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     fetchUser().finally(() => setLoading(false));
   }, [fetchUser]);
 
+  useEffect(() => {
+    const onSessionExpired = () => {
+      clearAllStorage();
+      setUser(null);
+      showToast('Session expired - please log in again', 'error');
+    };
+    window.addEventListener('auth:session-expired', onSessionExpired);
+    return () => window.removeEventListener('auth:session-expired', onSessionExpired);
+  }, [showToast]);
+
   const login = async (email: string, pass: string) => {
     try {
       const res = await authService.login(email, pass);
