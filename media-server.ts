@@ -34,6 +34,7 @@
 // Serving features: HTTP Range/206 (seekable video), ETag + Last-Modified
 // (revalidation), server-logged uploads/errors. Large files (2GB+) stream
 // straight to disk via multer diskStorage — never loaded into RAM.
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
