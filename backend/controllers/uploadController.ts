@@ -7,7 +7,7 @@ import { mediaServerBaseUrl } from '../lib/mediaUrl.js';
 // Vercel, falling back to the committed media-config.json). When set, uploads
 // go DIRECTLY from the browser to your PC — no cloud storage is used.
 export const getMediaServerConfigHandler = (_req: Request, res: Response) => {
-  const url = mediaServerBaseUrl();
+  const url = mediaServerBaseUrl().replace(/\/+$/, '');
   return res.json({ mediaServerUrl: url || null });
 };
 

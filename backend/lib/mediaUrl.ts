@@ -45,7 +45,10 @@ export function resolveMediaUrl(url: string | undefined | null): string {
     const u = new URL(trimmed);
     if (u.hostname.endsWith('trycloudflare.com')) {
       const base = mediaServerBaseUrl();
-      return base ? `${base}${u.pathname}${u.search}` : trimmed;
+      // new URL('https://host') has pathname '/' — don't append it, or the
+      // rewritten URL gains a spurious trailing slash.
+      const pathname = u.pathname && u.pathname !== '/' ? u.pathname : '';
+      return base ? `${base}${pathname}${u.search}` : trimmed;
     }
     return trimmed;
   } catch {
