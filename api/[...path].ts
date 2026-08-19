@@ -11,6 +11,7 @@ import uploadRoutes from '../backend/routes/uploadRoutes.js';
 import featureRoutes from '../backend/routes/featureRoutes.js';
 import analyticsRoutes from '../backend/routes/analyticsRoutes.js';
 import { seedUsersToMongo } from '../backend/lib/userStore.js';
+import { rewriteMediaUrls } from '../backend/lib/mediaUrl.js';
 
 const app = express();
 
@@ -21,6 +22,16 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
+
+// Rewrites any stored media URL that points at an OLD Cloudflare tunnel
+// hostname to the CURRENT media server URL (see backend/lib/mediaUrl.ts).
+// Applied to every JSON response so posters/videos never die when the
+// free tunnel URL rotates.
+app.use((_req, res, next) => {
+  const origJson = res.json.bind(res);
+  res.json = ((body: unknown) => origJson(rewriteMediaUrls(body))) as typeof res.json;
+  next();
+});
 
 // Vercel catch-all receives /api/...
 // Express routes are mounted without the /api prefix.

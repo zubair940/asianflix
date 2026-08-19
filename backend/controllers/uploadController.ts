@@ -1,13 +1,14 @@
 import { Request, Response } from 'express';
 import { storeFile, getStorageStatus } from '../lib/storage.js';
+import { mediaServerBaseUrl } from '../lib/mediaUrl.js';
 
 // GET /api/dramas/media-config
-// Tells the browser where the local media server lives (set MEDIA_SERVER_URL
-// on Vercel). When set, uploads go DIRECTLY from the browser to your PC —
-// no cloud storage is used.
+// Tells the browser where the local media server lives (MEDIA_SERVER_URL on
+// Vercel, falling back to the committed media-config.json). When set, uploads
+// go DIRECTLY from the browser to your PC — no cloud storage is used.
 export const getMediaServerConfigHandler = (_req: Request, res: Response) => {
-  const url = process.env.MEDIA_SERVER_URL;
-  return res.json({ mediaServerUrl: url ? url.replace(/\/+$/, '') : null });
+  const url = mediaServerBaseUrl();
+  return res.json({ mediaServerUrl: url || null });
 };
 
 // GET /api/admin/storage-status
