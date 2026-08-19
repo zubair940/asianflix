@@ -15,7 +15,6 @@ import {
   ShieldAlert,
   Menu,
   X,
-  Zap,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -94,9 +93,6 @@ export const Navbar: React.FC = () => {
               alt=""
               className="w-9 h-9 rounded-xl object-contain shadow-lg shadow-black/50 border border-white/10 group-hover:scale-105 transition-transform duration-300"
             />
-            <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-gradient-to-r from-cyan-400 to-blue-600 rounded-full flex items-center justify-center">
-              <Zap className="w-3 h-3 text-gray-950" />
-            </span>
           </div>
           <div className="hidden sm:block">
             <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-gray-100 to-cyan-400 bg-clip-text text-transparent">

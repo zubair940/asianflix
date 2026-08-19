@@ -10,5 +10,6 @@ coverage/
 .vercel
 
 uploads/
+.chunks/
 
 .env*

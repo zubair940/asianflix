@@ -36,13 +36,13 @@ export const AdminAnalytics: React.FC = () => {
   const { data: stats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['adminAnalytics', 'dashboard'],
     queryFn: analyticsApi.getDashboardStats,
-    refetchInterval: 60000,
+    refetchInterval: 15000,
   });
 
   const { data: realtime, isLoading: realtimeLoading } = useQuery({
     queryKey: ['adminAnalytics', 'realtime'],
     queryFn: analyticsApi.getRealtimeStats,
-    refetchInterval: 30000,
+    refetchInterval: 5000,
   });
 
   const { data: engagement, isLoading: engagementLoading } = useQuery({
@@ -315,6 +315,10 @@ export const AdminAnalytics: React.FC = () => {
           <div className="p-6 rounded-3xl bg-gray-900 border border-gray-800 space-y-4 lg:col-span-2">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <Activity className="w-4 h-4 text-cyan-400" /> Realtime Activity
+              <span className="ml-1 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+                Live
+              </span>
             </h3>
             {realtime && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

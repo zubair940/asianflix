@@ -30,6 +30,17 @@ export const SearchPage: React.FC = () => {
   const [showMobileFilter, setShowMobileFilter] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Keep filter state in sync with the URL (footer/category links can change
+  // the query params while this page is already mounted).
+  useEffect(() => {
+    setQuery(searchParams.get('q') || '');
+    setSelectedCategory(searchParams.get('category') || 'All');
+    setSelectedGenre(searchParams.get('genre') || 'All');
+    setSelectedYear(searchParams.get('year') ? parseInt(searchParams.get('year')!) : null);
+    setMinRating(searchParams.get('minRating') ? parseFloat(searchParams.get('minRating')!) : null);
+    setSelectedSort(searchParams.get('sort') || 'latest');
+  }, [searchParams]);
+
   // Debounced Search Effect
   useEffect(() => {
     const handler = setTimeout(() => {

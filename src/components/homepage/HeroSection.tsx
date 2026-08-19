@@ -62,6 +62,7 @@ const HeroSection = memo(function HeroSection({ drama }: HeroSectionProps) {
           loading="eager"
           fetchPriority="high"
           decoding="async"
+          fallbackSrc={drama.poster || undefined}
           className="absolute inset-0 w-full h-full object-cover object-top filter brightness-[0.6] transition-transform duration-700 group-hover:scale-105"
         />
         {/* Gradient Overlays */}

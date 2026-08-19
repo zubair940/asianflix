@@ -7,7 +7,6 @@ import { featureService } from '../../services/featureService.js';
 import { formatTime, getMediaUrl } from '../../utils/helpers.js';
 import Hls from 'hls.js';
 import { DanmakuOverlay } from './DanmakuOverlay.js';
-import { WatchPartyDrawer } from './WatchPartyDrawer.js';
 import { OfflineDownloadModal } from './OfflineDownloadModal.js';
 import { SubtitleCustomizerModal, SubtitleStyleConfig } from './SubtitleCustomizerModal.js';
 import { useToast } from '../../context/ToastContext.js';
@@ -28,7 +27,6 @@ import {
   AlertTriangle,
   Loader2,
   MessageSquare,
-  Users,
   Download,
   Type,
   Send,
@@ -129,7 +127,6 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
   const [danmakuColor, setDanmakuColor] = useState('#00C2FF');
 
   // Modals state
-  const [showWatchParty, setShowWatchParty] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showSubCustomizer, setShowSubCustomizer] = useState(false);
   const [subConfig, setSubConfig] = useState<SubtitleStyleConfig>({
@@ -156,6 +153,7 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
     setIsBuffering(true);
     setHasStartedPlaying(false);
     setCurrentTime(0);
+    retryAttemptsRef.current = 0;
 
     if (videoRef.current) {
       videoRef.current.volume = 1;
@@ -235,6 +233,7 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
     setHasError(false);
     setErrorMessage('');
     setIsBuffering(true);
+    retryAttemptsRef.current = 0;
     if (videoRef.current) {
       videoRef.current.load();
       videoRef.current
@@ -251,12 +250,33 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
     }
   };
 
+  const retryAttemptsRef = useRef(0);
+
   const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
-    const error = (e.target as HTMLVideoElement).error;
+    const video = e.target as HTMLVideoElement;
+    // Single automatic recovery attempt (transient network/decoder failures)
+    // before showing the error screen.
+    if (retryAttemptsRef.current < 1 && video) {
+      retryAttemptsRef.current += 1;
+      video.load();
+      video
+        .play()
+        .then(() => {
+          setIsPlaying(true);
+          setIsBuffering(false);
+        })
+        .catch(() => {
+          setHasError(true);
+          setIsBuffering(false);
+          setIsPlaying(false);
+          setErrorMessage('Video stream unavailable. Check your connection and try again.');
+        });
+      return;
+    }
     setHasError(true);
     setIsBuffering(false);
     setIsPlaying(false);
-    setErrorMessage('Video stream unavailable on current mirror server.');
+    setErrorMessage('Video stream unavailable. Check your connection and try again.');
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -319,15 +339,36 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
     setShowSettings(false);
   };
 
+  // Sync the fullscreen button state with the browser (Esc key, etc.)
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
   const toggleFullscreen = () => {
-    if (!containerRef.current) return;
+    const video = videoRef.current;
+    if (!video) return;
     if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
+      // iOS Safari: fullscreen only works directly on the <video> element.
+      const webkitVideo = video as HTMLVideoElement & { webkitEnterFullscreen?: () => void };
+      if (typeof webkitVideo.webkitEnterFullscreen === 'function') {
+        webkitVideo.webkitEnterFullscreen();
+        setIsFullscreen(true);
+      } else if (containerRef.current?.requestFullscreen) {
+        containerRef.current.requestFullscreen().catch(() => {});
+      }
     } else {
       document.exitFullscreen().catch(() => {});
-      setIsFullscreen(false);
     }
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect || !videoRef.current) return;
+    // Left half = rewind 10s, right half = forward 10s
+    const seconds = e.clientX - rect.left < rect.width / 2 ? -10 : 10;
+    skipSeconds(seconds);
   };
 
   const currentEpIndex = allEpisodes.findIndex((e) => e.id === episode.id);
@@ -347,6 +388,7 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
       <div
         ref={containerRef}
         onMouseMove={handleMouseMove}
+        onDoubleClick={handleDoubleClick}
         className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800/80 group select-none"
       >
         {/* Danmaku Floating Bullet Comments Overlay */}
@@ -490,8 +532,8 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
             />
           </div>
 
-          <div className="flex items-center justify-between text-white text-xs">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 text-white text-xs">
+            <div className="flex items-center gap-1 sm:gap-2.5">
               <button onClick={togglePlay} className="p-2 hover:text-[#00C2FF] transition-colors cursor-pointer">
                 {isPlaying ? <Pause className="w-5 h-5 fill-white" /> : <Play className="w-5 h-5 fill-white ml-0.5" />}
               </button>
@@ -504,7 +546,7 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
               </button>
 
               {/* Volume */}
-              <div className="flex items-center gap-2 group/vol">
+              <div className="hidden sm:flex items-center gap-2 group/vol">
                 <button onClick={toggleMute} className="p-1.5 hover:text-[#00C2FF] text-slate-300 cursor-pointer">
                   {isMuted || volume === 0 ? <VolumeX className="w-5 h-5 text-rose-400" /> : <Volume2 className="w-5 h-5" />}
                 </button>
@@ -525,15 +567,6 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
             </div>
 
             <div className="flex items-center gap-2.5 relative">
-              {/* Watch Party Button */}
-              <button
-                onClick={() => setShowWatchParty(!showWatchParty)}
-                className="px-2.5 py-1.5 rounded-lg bg-cyan-500/20 text-[#00C2FF] text-xs font-bold flex items-center gap-1 hover:bg-cyan-500/30 transition-all cursor-pointer"
-                title="Watch Party"
-              >
-                <Users className="w-4 h-4" /> Party
-              </button>
-
               {/* Offline Download Button */}
               <button
                 onClick={() => setShowDownloadModal(true)}
@@ -580,6 +613,29 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
               <button onClick={toggleFullscreen} className="p-1.5 text-slate-300 hover:text-[#00C2FF] transition-colors cursor-pointer">
                 {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
               </button>
+
+              {/* Settings Dropdown (playback speed) */}
+              {showSettings && (
+                <div className="absolute bottom-12 right-0 z-50 w-44 rounded-2xl bg-black/90 backdrop-blur-xl border border-white/10 p-2 shadow-2xl animate-fade-in">
+                  <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Playback Speed
+                  </p>
+                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                    <button
+                      key={rate}
+                      onClick={() => changeSpeed(rate)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                        playbackRate === rate
+                          ? 'text-[#00C2FF] bg-cyan-500/10'
+                          : 'text-slate-200 hover:bg-white/5'
+                      }`}
+                    >
+                      <span>{rate}x</span>
+                      {playbackRate === rate && <Check className="w-3.5 h-3.5" aria-hidden="true" />}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -633,18 +689,6 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
       </div>
 
       {/* Modals & Drawers */}
-      <WatchPartyDrawer
-        drama={drama}
-        episode={episode}
-        isOpen={showWatchParty}
-        onClose={() => setShowWatchParty(false)}
-        currentTime={currentTime}
-        isPlaying={isPlaying}
-        onSyncTime={(time) => {
-          if (videoRef.current) videoRef.current.currentTime = time;
-        }}
-      />
-
       <OfflineDownloadModal
         drama={drama}
         episode={episode}

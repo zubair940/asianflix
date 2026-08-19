@@ -373,6 +373,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ defaultTab = 'watchlis
           </div>
         )}
       </div>
+
+      {showAvatarSelector && (
+        <AvatarSelector onClose={() => setShowAvatarSelector(false)} />
+      )}
     </div>
   );
 };
