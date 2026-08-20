@@ -1,5 +1,6 @@
 import { apiRequest } from './api.js';
 import { DashboardStats, User } from '../types.js';
+import { uploadFileWithStrategy, getUploadMethodDescription, type UploadResult } from '../utils/uploadStrategy.js';
 
 // Chunk size for large files — must stay well under Cloudflare's free tunnel
 // per-request body cap (~100MB), otherwise the tunnel kills the request
@@ -175,42 +176,35 @@ export const adminService = {
     return { url: completeRes.json.url, filename: completeRes.json.filename };
   },
 
-  // Uploads a file DIRECTLY from the browser to the local media server (your
-  // PC, exposed via Cloudflare Tunnel). NO cloud storage is used.
-  //
-  // mediaPath is an optional folder hint stored under uploads/ on the PC:
-  //   'temp'                     -> temp/<uuid>.<ext>
-  //   'dramas/<dramaId>'          -> dramas/<dramaId>/<uuid>.<ext>
-  //   'dramas/<dramaId>/poster.jpg' -> dramas/<dramaId>/poster.jpg (explicit)
-  //
-  // If the media server is offline, small files (images/subtitles) fall back
-  // to the server proxy (local disk, dev only). Videos refuse to proxy
-  // through the serverless function (request body limits).
+  // Uploads a file using the best available strategy:
+  // 1. Vercel Blob (fast CDN upload) for large files >100MB when token available
+  // 2. Chunked upload via Cloudflare Tunnel for files >50MB
+  // 3. Direct upload via tunnel for smaller files
+  // 4. Fallback to server proxy for non-video files when media server offline
   uploadFile: async (file: File, onProgress?: (percent: number) => void, mediaPath?: string) => {
     const isVideo = /^video\//.test(file.type);
     const mediaServerUrl = await adminService._getMediaServerUrl();
 
-    console.log(`[uploadFile] file=${file.name} (${file.type}, ${file.size} bytes), mediaPath=${mediaPath}, mediaServerUrl=${mediaServerUrl}`);
+    console.log(`[uploadFile] file=${file.name} (${file.type}, ${file.size} bytes), mediaPath=${mediaPath}, mediaServerUrl=${mediaServerUrl ? 'yes' : 'no'}`);
 
+    // If media server is available, use the smart upload strategy
     if (mediaServerUrl) {
-      if (file.size > CHUNK_SIZE) {
-        return adminService._uploadChunked(file, mediaServerUrl, mediaPath, onProgress);
+      try {
+        const result = await uploadFileWithStrategy({
+          file,
+          mediaPath,
+          onProgress,
+          mediaServerUrl,
+        });
+        console.log(`[uploadFile] completed via ${result.method}: ${result.url}`);
+        return { url: result.url, filename: result.filename };
+      } catch (error: any) {
+        console.error('[uploadFile] Smart upload failed:', error.message);
+        throw error;
       }
-
-      const formData = new FormData();
-      formData.append('file', file);
-      if (mediaPath) formData.append('path', mediaPath);
-      
-      // Don't set any headers for FormData - browser sets Content-Type with boundary
-      const res = await xhrUpload(`${mediaServerUrl}/api/upload`, 'POST', formData, {}, onProgress, isVideo ? 600000 : 300000);
-      console.log(`[uploadFile] response:`, res);
-      if (!res.ok) {
-        const msg = res.json?.message || res.json?.rawResponse || `Upload failed (${res.status})`;
-        throw new Error(msg);
-      }
-      return { url: res.json.url, filename: res.json.filename };
     }
 
+    // Fallback: media server not configured
     console.warn('[uploadFile] Media server URL not configured, falling back to server proxy');
     if (!isVideo) {
       const formData = new FormData();
