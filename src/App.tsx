@@ -14,10 +14,11 @@ import { AdminRoute } from './components/admin/AdminRoute.js';
 import { LoadingSpinner } from './components/common/LoadingSpinner.js';
 import { ErrorBoundary } from './components/common/ErrorBoundary.js';
 import { queryClient } from './services/api.js';
+import { lazyWithRetry } from './components/common/LazyWithRetry.js';
 
 const Home = lazy(() => import('./pages/Home').then(m => ({ default: m.Home })));
 const DramaPage = lazy(() => import('./pages/DramaPage').then(m => ({ default: m.DramaPage })));
-const WatchPage = lazy(() => import('./pages/WatchPage').then(m => ({ default: m.WatchPage })));
+const WatchPage = lazyWithRetry(() => import('./pages/WatchPage').then(m => ({ default: m.WatchPage })), { maxRetries: 3, retryDelay: 1000 });
 const SearchPage = lazy(() => import('./pages/SearchPage').then(m => ({ default: m.SearchPage })));
 const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const RegisterPage = lazy(() => import('./pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
