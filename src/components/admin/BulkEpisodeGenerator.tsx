@@ -72,6 +72,8 @@ const BulkEpisodeGenerator = memo(function BulkEpisodeGenerator({
     { id: newRowId(), dramaId: '', episodeNumber: '1', title: 'Episode 1', file: null, videoUrl: '', status: 'pending', progress: 0, error: '' }
   ]);
   const [busy, setBusy] = useState(false);
+  // Stable progress that only goes forward (prevents blinking)
+  const [stableProgress, setStableProgress] = useState(0);
 
   const patchRow = useCallback((id: string, patch: Partial<BulkRow>) => {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
@@ -118,17 +120,30 @@ const BulkEpisodeGenerator = memo(function BulkEpisodeGenerator({
     }));
   }, [showToast]);
 
+  // Stable progress callback that only goes forward
+  const makeProgressCallback = useCallback((rowId: string) => (p: number) => {
+    setRows(prev => prev.map(r => {
+      if (r.id !== rowId) return r;
+      return { ...r, progress: Math.max(r.progress, p) };
+    }));
+  }, []);
+
   const uploadOne = useCallback(async (row: BulkRow): Promise<{ ok: boolean; url: string }> => {
     if (!row.file) return { ok: true, url: row.videoUrl };
     try {
-      const res = await adminService.uploadFile(row.file, p => patchRow(row.id, { progress: p }), `dramas/${row.dramaId}/episodes/episode-${row.episodeNumber}`);
-      patchRow(row.id, { videoUrl: res.url, status: 'uploaded', progress: 100 });
+      const res = await adminService.uploadFile(row.file, p => {
+        setRows(prev => prev.map(r => {
+          if (r.id !== row.id) return r;
+          return { ...r, progress: Math.max(r.progress, p) };
+        }));
+      }, `dramas/${row.dramaId}/episodes/episode-${row.episodeNumber}`);
+      setRows(prev => prev.map(r => r.id === row.id ? { ...r, videoUrl: res.url, status: 'uploaded', progress: 100 } : r));
       return { ok: true, url: res.url };
     } catch (err: any) {
-      patchRow(row.id, { status: 'error', error: err.message || 'Upload failed' });
+      setRows(prev => prev.map(r => r.id === row.id ? { ...r, status: 'error', error: err.message || 'Upload failed' } : r));
       return { ok: false, url: '' };
     }
-  }, [patchRow]);
+  }, []);
 
   const handleUploadAll = useCallback(async () => {
     const missingDrama = rows.some(r => !r.dramaId);
@@ -143,6 +158,7 @@ const BulkEpisodeGenerator = memo(function BulkEpisodeGenerator({
     }
 
     setBusy(true);
+    setStableProgress(0);
 
     // Phase 1: upload video files (per-row progress, failures don't block others)
     const payload: { dramaId: string; episodeNumber?: number; title: string; videoUrl: string }[] = [];
@@ -158,7 +174,7 @@ const BulkEpisodeGenerator = memo(function BulkEpisodeGenerator({
         rowIds.push(row.id);
         continue;
       }
-      patchRow(row.id, { status: 'uploading', progress: 0, error: '' });
+      setRows(prev => prev.map(r => r.id === row.id ? { ...r, status: 'uploading', progress: 0, error: '' } : r));
       const { ok, url } = await uploadOne(row);
       if (ok && url) {
         payload.push({
@@ -196,8 +212,9 @@ const BulkEpisodeGenerator = memo(function BulkEpisodeGenerator({
       showToast(`${created} of ${rows.length} episodes created successfully!`, 'success');
       onSuccess();
     }
-  }, [rows, uploadOne, patchRow, showToast, onSuccess]);
+  }, [rows, uploadOne, showToast, onSuccess]);
 
+  // Stable overall progress that only goes forward (prevents blinking)
   const overallProgress = useMemo(() => {
     if (rows.length === 0) return 0;
     const total = rows.reduce((acc, r) => {
@@ -207,8 +224,26 @@ const BulkEpisodeGenerator = memo(function BulkEpisodeGenerator({
       if (r.status === 'error') return acc + 0;
       return acc;
     }, 0);
-    return Math.round(total / rows.length);
-  }, [rows]);
+    const calculated = Math.round(total / rows.length);
+    return Math.max(stableProgress, calculated);
+  }, [rows, stableProgress]);
+
+  // Update stable progress when calculated progress goes forward
+  useMemo(() => {
+    if (rows.length > 0) {
+      const total = rows.reduce((acc, r) => {
+        if (r.status === 'done') return acc + 100;
+        if (r.status === 'uploaded' || r.status === 'saving') return acc + 90;
+        if (r.status === 'uploading') return acc + r.progress * 0.7;
+        if (r.status === 'error') return acc + 0;
+        return acc;
+      }, 0);
+      const calculated = Math.round(total / rows.length);
+      if (calculated > stableProgress) {
+        setStableProgress(calculated);
+      }
+    }
+  }, [rows, stableProgress]);
 
   const activeCount = rows.filter(r => r.status === 'done').length;
 

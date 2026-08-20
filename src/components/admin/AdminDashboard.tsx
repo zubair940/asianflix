@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, Suspense, lazy, memo } from 'react';
+﻿import React, { useState, useEffect, Suspense, lazy, memo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DashboardStats, Drama } from '../../types.js';
 import { adminService } from '../../services/adminService.js';
@@ -28,7 +28,8 @@ import {
   Sparkles,
   Zap,
   LayoutDashboard,
-  BarChart2
+  BarChart2,
+  RefreshCw
 } from 'lucide-react';
 
 const AddDrama = lazy(() => import('./AddDrama.js').then(m => ({ default: m.AddDrama })));
@@ -69,6 +70,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = memo(function AdminDashboa
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [dramas, setDramas] = useState<Drama[]>([]);
   const [loading, setLoading] = useState(true);
+  // Force refresh timestamp to bust cache
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const [activeTab, setActiveTab] = useState<'stats' | 'dramas' | 'episodes' | 'users' | 'reorder' | 'reviews' | 'danmaku' | 'cluster' | 'schedule' | 'activity' | 'templates' | 'analytics'>(getStartingTab);
 
@@ -81,24 +84,39 @@ const AdminDashboard: React.FC<AdminDashboardProps> = memo(function AdminDashboa
   const [reorderDramaId, setReorderDramaId] = useState<string | undefined>(undefined);
   const [showReorderModal, setShowReorderModal] = useState(false);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
+      // Add timestamp to bust cache
+      const timestamp = Date.now();
       const [sData, dData] = await Promise.all([
         adminService.getDashboardStats(),
         dramaService.getAllDramas()
       ]);
-      setStats(sData);
+      
+      // Fallback: if stats API returns 0 episodes but dramas have episodeCount, calculate from dramas
+      let totalEpisodes = sData?.totalEpisodes || 0;
+      if (totalEpisodes === 0 && dData?.dramas?.length > 0) {
+        totalEpisodes = dData.dramas.reduce((sum: number, d: any) => sum + (d.episodeCount || 0), 0);
+      }
+      
+      setStats({ ...sData, totalEpisodes });
       setDramas(dData.dramas);
+      setRefreshKey(timestamp);
     } catch (err: any) {
       showToast(err.message || 'Error loading admin data', 'error');
     } finally {
       setLoading(false);
     }
+  }, [showToast]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  const forceRefresh = () => {
+    setRefreshKey(prev => prev + 1);
+    loadDashboardData();
   };
 
   const handleDeleteDrama = async (id: string, title: string) => {
@@ -193,8 +211,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = memo(function AdminDashboa
             >
               <Plus className="w-4 h-4 text-rose-400" /> Add Episode
             </button>
+            <button
+              onClick={forceRefresh}
+              disabled={loading}
+              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              title="Refresh dashboard data"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         </div>
+
+        {/* Last Updated Timestamp */}
+        {refreshKey > 0 && (
+          <div className="text-[10px] text-slate-500 mt-2">
+            Last updated: {new Date(refreshKey).toLocaleTimeString()}
+          </div>
+        )}
 
         {/* Modal overlays for forms */}
         {showAddDrama && (
@@ -239,6 +272,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = memo(function AdminDashboa
               <Layers className="w-4 h-4 text-pink-400" />
             </div>
             <p className="text-2xl font-black text-white">{stats?.totalEpisodes || 0}</p>
+            {stats && stats.totalEpisodes === 0 && dramas.length > 0 && (
+              <p className="text-[10px] text-slate-500 mt-1">
+                Calculated from {dramas.length} drama(s): {dramas.reduce((sum, d) => sum + (d.episodeCount || 0), 0)} episodes
+              </p>
+            )}
           </div>
 
           <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
