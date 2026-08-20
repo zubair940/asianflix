@@ -74,7 +74,7 @@ export interface UploadStrategyOptions {
 }
 
 const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB
-const VERCEL_BLOB_THRESHOLD = 100 * 1024 * 1024; // 100MB - use Vercel Blob for files larger than this
+const VERCEL_BLOB_THRESHOLD = 500 * 1024 * 1024; // 500MB - use Vercel Blob only for very large files (tunnel is usually faster for 100-500MB)
 const MAX_VERCEL_BLOB_SIZE = 2 * 1024 * 1024 * 1024; // 2GB max for Vercel Blob
 
 function hasVercelBlobToken(): boolean {
@@ -110,9 +110,12 @@ export function determineUploadMethod(options: UploadStrategyOptions): UploadMet
     return 'fallback';
   }
 
-  // For large files (>100MB) where Vercel Blob is available, use Vercel Blob
-  // Vercel Blob has much better upload speeds and handles large files well
-  if (size > 100 * 1024 * 1024 && size <= 2 * 1024 * 1024 * 1024 && hasVercelBlobToken()) {
+  // Allow forcing tunnel upload via environment variable (useful if Vercel Blob has issues)
+  const forceTunnel = typeof process !== 'undefined' && process.env.FORCE_TUNNEL_UPLOAD === 'true';
+
+  // For very large files (>500MB) where Vercel Blob is available, use Vercel Blob
+  // Note: Tunnel is often faster for 100-500MB files, so threshold is set higher
+  if (!forceTunnel && size > 500 * 1024 * 1024 && size <= 2 * 1024 * 1024 * 1024 && hasVercelBlobToken()) {
     return 'vercel-blob';
   }
 
@@ -125,24 +128,114 @@ export function determineUploadMethod(options: UploadStrategyOptions): UploadMet
   return 'tunnel-direct';
 }
 
-async function uploadViaTunnel(
+// Direct tunnel upload (single request, for files <= 50MB)
+async function uploadDirectTunnel(
   file: File,
   mediaServerUrl: string,
   mediaPath: string | undefined,
   onProgress?: (percent: number) => void
 ): Promise<{ url: string; filename: string }> {
-  const { adminService } = await import('../services/adminService.js');
-  return adminService.uploadFile(file, onProgress, mediaPath);
+  const formData = new FormData();
+  formData.append('file', file);
+  if (mediaPath) formData.append('path', mediaPath);
+
+  const res = await xhrUpload(`${mediaServerUrl}/api/upload`, 'POST', formData, {}, onProgress);
+  if (!res.ok) {
+    const msg = res.json?.message || res.json?.rawResponse || `Upload failed (${res.status})`;
+    throw new Error(msg);
+  }
+  return { url: res.json.url, filename: res.json.filename };
 }
 
-async function uploadDirect(
+// Chunked tunnel upload (for files > 50MB)
+async function uploadChunkedTunnel(
   file: File,
   mediaServerUrl: string,
   mediaPath: string | undefined,
   onProgress?: (percent: number) => void
 ): Promise<{ url: string; filename: string }> {
-  const { adminService } = await import('../services/adminService.js');
-  return adminService.uploadFile(file, onProgress, mediaPath);
+  const CHUNK_SIZE = 50 * 1024 * 1024; // 50 MB
+  const total = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
+  const uploadId = `up_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+  const existingIndexes = async (): Promise<number[]> => {
+    try {
+      const res = await xhrUpload(`${mediaServerUrl}/api/upload/chunks/${uploadId}`, 'GET', null, {});
+      return Array.isArray(res.json?.indexes) ? res.json.indexes : [];
+    } catch {
+      return [];
+    }
+  };
+
+  let done = 0;
+  try {
+    done = (await existingIndexes()).length;
+  } catch {
+    done = 0;
+  }
+  if (done > 0) console.log(`[uploadChunkedTunnel] resuming chunked upload ${uploadId} from chunk ${done}`);
+
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 1000;
+  const MAX_CONCURRENT_CHUNKS = 3;
+
+  async function uploadChunk(i: number): Promise<void> {
+    const start = i * 50 * 1024 * 1024;
+    const blob = file.slice(start, Math.min(start + 50 * 1024 * 1024, file.size));
+    const formData = new FormData();
+    formData.append('uploadId', uploadId);
+    formData.append('index', String(i));
+    formData.append('total', String(total));
+    if (mediaPath) formData.append('path', mediaPath);
+    formData.append('file', blob, file.name);
+
+    const chunkProgress = (p: number) => onProgress && onProgress(Math.round(((i + p / 100) / total) * 100));
+
+    let lastError: Error | null = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await xhrUpload(`${mediaServerUrl}/api/upload/chunk`, 'POST', formData, {}, chunkProgress);
+        if (res.ok) return;
+        lastError = new Error(res.json?.message || `Chunk ${i + 1}/${total} failed (${res.status})`);
+      } catch (err: any) {
+        lastError = err;
+      }
+      if (attempt < 3) {
+        console.warn(`[uploadChunkedTunnel] chunk ${i + 1}/${total} attempt ${attempt} failed, retrying...`);
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+      }
+    }
+    throw lastError || new Error(`Chunk ${i + 1}/${total} failed after 3 retries`);
+  }
+
+  let nextIndex = done;
+  const running = new Set<Promise<void>>();
+
+  async function runQueue(): Promise<void> {
+    while (nextIndex < total) {
+      if (running.size >= 3) {
+        await Promise.race(running);
+        continue;
+      }
+      const i = nextIndex++;
+      const p = uploadChunk(i).then(() => { running.delete(p); }).catch((err) => { running.delete(p); throw err; });
+      running.add(p);
+    }
+    if (running.size > 0) await Promise.all(running);
+  }
+
+  await runQueue();
+
+  const completeRes = await xhrUpload(
+    `${mediaServerUrl}/api/upload/complete`,
+    'POST',
+    JSON.stringify({ uploadId, filename: file.name, path: mediaPath }),
+    { 'Content-Type': 'application/json' }
+  );
+  if (!completeRes.ok) {
+    throw new Error(completeRes.json?.message || `Finalizing upload failed (${completeRes.status})`);
+  }
+  return { url: completeRes.json.url, filename: completeRes.json.filename };
 }
 
 export async function uploadFileWithStrategy(options: { file: File; mediaPath?: string; onProgress?: (percent: number) => void; mediaServerUrl?: string }): Promise<{
@@ -157,18 +250,21 @@ export async function uploadFileWithStrategy(options: { file: File; mediaPath?: 
   console.log(`[UploadStrategy] file=${file.name} size=${file.size} method=${method} mediaServerUrl=${mediaServerUrl ? 'yes' : 'no'}`);
 
   try {
-    let result: { url: string; filename: string };
-
     switch (method) {
       case 'vercel-blob': {
         const result = await uploadToVercelBlob(file, options.mediaPath, onProgress);
         return { ...result, method: 'vercel-blob', vercelBlobUrl: result.url };
       }
 
-      case 'tunnel-chunked':
+      case 'tunnel-chunked': {
+        if (!mediaServerUrl) throw new Error('Media server URL required for tunnel upload');
+        const result = await uploadChunkedTunnel(file, mediaServerUrl, options.mediaPath, onProgress);
+        return { ...result, method };
+      }
+
       case 'tunnel-direct': {
         if (!mediaServerUrl) throw new Error('Media server URL required for tunnel upload');
-        const result = await uploadViaTunnel(file, mediaServerUrl, options.mediaPath, onProgress);
+        const result = await uploadDirectTunnel(file, mediaServerUrl, options.mediaPath, onProgress);
         return { ...result, method };
       }
 
@@ -179,8 +275,8 @@ export async function uploadFileWithStrategy(options: { file: File; mediaPath?: 
   } catch (error: any) {
     // If Vercel Blob fails, try tunnel as fallback
     if (method === 'vercel-blob' && mediaServerUrl) {
-      console.warn('[UploadStrategy] Vercel Blob upload failed, falling back to tunnel:', error.message);
-      const result = await uploadViaTunnel(file, mediaServerUrl, options.mediaPath, onProgress);
+      console.warn('[UploadStrategy] Vercel Blob upload failed, falling back to chunked tunnel:', error.message);
+      const result = await uploadChunkedTunnel(file, mediaServerUrl, options.mediaPath, onProgress);
       return { ...result, method: 'tunnel-chunked' };
     }
     throw error;
