@@ -1,4 +1,5 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+﻿import React, { useState, useEffect, Suspense, lazy, memo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { DashboardStats, Drama } from '../../types.js';
 import { adminService } from '../../services/adminService.js';
 import { dramaService } from '../../services/dramaService.js';
@@ -41,7 +42,7 @@ const SystemAnalyticsDashboard = lazy(() => import('./SystemAnalyticsDashboard.j
 const ScheduledPublishing = lazy(() => import('./ScheduledPublishing.js').then(m => ({ default: m.ScheduledPublishing })));
 const AdminActivityLog = lazy(() => import('./AdminActivityLog.js').then(m => ({ default: m.AdminActivityLog })));
 const EpisodeTemplates = lazy(() => import('./EpisodeTemplates.js').then(m => ({ default: m.EpisodeTemplates })));
-const AdminAnalytics = lazy(() => import('./AdminAnalytics.js').then(m => ({ default: m.AdminAnalytics })));
+const AdminAnalytics = lazy(() => import('./AdminAnalytics.js').then(m => ({ default: m.default })));
 
 const TabLoader = () => (
   <div className="min-h-[40vh] flex items-center justify-center">
@@ -49,13 +50,11 @@ const TabLoader = () => (
   </div>
 );
 
-import { useLocation } from 'react-router-dom';
-
 interface AdminDashboardProps {
   initialTab?: 'stats' | 'dramas' | 'episodes' | 'users' | 'reorder' | 'reviews' | 'danmaku' | 'cluster' | 'schedule' | 'activity' | 'templates' | 'analytics';
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = memo(function AdminDashboard({ initialTab }) {
   const { showToast } = useToast();
   const location = useLocation();
 
@@ -461,7 +460,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
           <Suspense fallback={<TabLoader />}>
             <ScheduledPublishing
               dramas={dramas.map(d => ({ id: d.id, title: d.title }))}
-              episodes={[]} // Would be populated from episode data
+              episodes={[]}
               onClose={() => setActiveTab('stats')}
             />
           </Suspense>
@@ -634,5 +633,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab }) =>
       </div>
     </div>
   );
-};
+});
 
+AdminDashboard.displayName = 'AdminDashboard';
+
+export { AdminDashboard };

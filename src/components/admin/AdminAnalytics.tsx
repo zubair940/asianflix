@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
@@ -28,7 +28,7 @@ const statCards = [
   { label: 'New Users (24h)', key: 'newUsers24h', icon: Plus, color: 'text-rose-400' },
 ];
 
-export const AdminAnalytics: React.FC = () => {
+const AdminAnalytics: React.FC = () => {
   const { showToast } = useToast();
   const [timeRange, setTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('7d');
   const [selectedDrama, setSelectedDrama] = useState<string | null>(null);
