@@ -79,8 +79,7 @@ export const EditEpisodeModal: React.FC<EditEpisodeModalProps> = ({
     setSubtitles(subtitles.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!title.trim()) {
       showToast('Episode title is required', 'error');
       return;
@@ -138,7 +137,7 @@ export const EditEpisodeModal: React.FC<EditEpisodeModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
           {/* Drama Dropdown */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2 space-y-1.5">
@@ -313,7 +312,8 @@ export const EditEpisodeModal: React.FC<EditEpisodeModalProps> = ({
               Cancel
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={loading}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:brightness-110 text-white text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-rose-600/30 transition-all cursor-pointer disabled:opacity-50"
             >
@@ -326,7 +326,7 @@ export const EditEpisodeModal: React.FC<EditEpisodeModalProps> = ({
               )}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

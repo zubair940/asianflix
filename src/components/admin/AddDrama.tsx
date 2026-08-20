@@ -54,8 +54,7 @@ export const AddDrama: React.FC<AddDramaProps> = ({ onSuccess, onCancel }) => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!title || !description || !poster) {
       showToast('Title, description and poster are required', 'error');
       return;
@@ -95,7 +94,7 @@ export const AddDrama: React.FC<AddDramaProps> = ({ onSuccess, onCancel }) => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+      <div className="space-y-4 text-xs">
         {/* Category Selection Feature */}
         <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2">
           <label className="font-bold text-slate-200 flex items-center gap-2">
@@ -264,14 +263,15 @@ export const AddDrama: React.FC<AddDramaProps> = ({ onSuccess, onCancel }) => {
             Cancel
           </button>
           <button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             disabled={submitting || uploading}
             className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold shadow-lg shadow-rose-600/30 disabled:opacity-50 cursor-pointer"
           >
             {submitting ? 'Saving...' : 'Create Drama'}
           </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 };

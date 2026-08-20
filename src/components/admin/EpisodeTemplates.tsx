@@ -77,8 +77,7 @@ const EpisodeTemplates = memo(function EpisodeTemplates({ onClose }: EpisodeTemp
     setEditingTemplate(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = () => {
     if (!formName.trim()) {
       showToast('Template name is required', 'error');
       return;
@@ -218,7 +217,7 @@ const EpisodeTemplates = memo(function EpisodeTemplates({ onClose }: EpisodeTemp
 
       {/* Create/Edit Form Modal */}
       {(showCreate || editingTemplate) && (
-        <form onSubmit={handleSubmit} className="space-y-4 p-4 rounded-xl bg-slate-950/50 border border-slate-800 animate-slide-down max-h-[70vh] overflow-y-auto">
+        <div className="space-y-4 p-4 rounded-xl bg-slate-950/50 border border-slate-800 animate-slide-down max-h-[70vh] overflow-y-auto">
           <h3 className="font-semibold text-white">{editingTemplate ? 'Edit Template' : 'Create New Template'}</h3>
           
           <div className="space-y-1">
@@ -335,7 +334,8 @@ const EpisodeTemplates = memo(function EpisodeTemplates({ onClose }: EpisodeTemp
               Cancel
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={submitting}
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-violet-600 text-white font-bold disabled:opacity-50 flex items-center gap-2"
             >
@@ -343,7 +343,7 @@ const EpisodeTemplates = memo(function EpisodeTemplates({ onClose }: EpisodeTemp
               {editingTemplate ? 'Update' : 'Create'} Template
             </button>
           </div>
-        </form>
+        </div>
       )}
 
       {/* Search */}

@@ -88,8 +88,7 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!dramaId || !title || !videoUrl) {
       showToast('Drama, Episode Title, and Video URL are required', 'error');
       return;
@@ -153,7 +152,7 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
 
       {/* Single Episode Form */}
       {!showBulkGenerator && (
-        <form onSubmit={handleSubmit} className="space-y-5 text-xs">
+        <div className="space-y-5 text-xs">
           {/* Drama Selection with Search */}
           <div className="space-y-1">
             <label className="font-semibold text-slate-300 flex items-center gap-2">
@@ -392,7 +391,8 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
               Cancel
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={submitting || uploading || !dramaId || !title || !videoUrl}
               className="px-5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold shadow-lg shadow-rose-600/30 disabled:opacity-50 flex items-center gap-2"
             >
@@ -409,7 +409,7 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
               )}
             </button>
           </div>
-        </form>
+        </div>
       )}
     </div>
   );

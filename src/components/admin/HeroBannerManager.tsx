@@ -37,8 +37,7 @@ export const HeroBannerManager: React.FC<HeroBannerManagerProps> = ({ dramas }) 
     }
   };
 
-  const handleCreateBanner = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateBanner = async () => {
     try {
       const selectedDrama = dramas.find((d) => d.id === dramaId);
       const res = await featureService.saveHeroBanner({
@@ -88,7 +87,7 @@ export const HeroBannerManager: React.FC<HeroBannerManagerProps> = ({ dramas }) 
           <Plus className="w-4 h-4 text-[#00C2FF]" /> Add Featured Spotlight Banner
         </h3>
 
-        <form onSubmit={handleCreateBanner} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-bold text-slate-300 block mb-1">Link to Drama:</label>
             <select
@@ -167,12 +166,13 @@ export const HeroBannerManager: React.FC<HeroBannerManagerProps> = ({ dramas }) 
           </div>
 
           <button
-            type="submit"
+            type="button"
+            onClick={handleCreateBanner}
             className="md:col-span-2 py-3 px-4 rounded-xl bg-[#00C2FF] text-black font-extrabold text-xs flex items-center justify-center gap-2 hover:brightness-110 transition-all cursor-pointer"
           >
             <Sparkles className="w-4 h-4" /> Save Spotlight Hero Campaign
           </button>
-        </form>
+        </div>
       </div>
 
       {/* Existing Banners List */}

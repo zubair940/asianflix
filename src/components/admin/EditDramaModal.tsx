@@ -68,8 +68,7 @@ export const EditDramaModal: React.FC<EditDramaModalProps> = ({
 
   if (!isOpen || !drama) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!title.trim() || !description.trim() || !poster.trim()) {
       showToast('Title, description, and poster URL are required', 'error');
       return;
@@ -124,7 +123,7 @@ export const EditDramaModal: React.FC<EditDramaModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <div className="space-y-4 text-xs">
           {/* Category Selector */}
           <div className="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2">
             <label className="font-bold text-slate-200 flex items-center gap-2">
@@ -283,7 +282,8 @@ export const EditDramaModal: React.FC<EditDramaModalProps> = ({
               Cancel
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={loading}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:brightness-110 text-white text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-rose-600/30 transition-all cursor-pointer disabled:opacity-50"
             >
@@ -296,7 +296,7 @@ export const EditDramaModal: React.FC<EditDramaModalProps> = ({
               )}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

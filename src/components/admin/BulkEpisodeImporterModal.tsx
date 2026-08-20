@@ -28,8 +28,7 @@ export const BulkEpisodeImporterModal: React.FC<BulkEpisodeImporterModalProps> =
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!selectedDramaId || !epCount) return;
 
     setLoading(true);
@@ -73,7 +72,7 @@ export const BulkEpisodeImporterModal: React.FC<BulkEpisodeImporterModalProps> =
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
           <div>
             <label className="text-xs font-bold text-slate-300 block mb-1">Target Drama:</label>
             <select
@@ -139,13 +138,14 @@ export const BulkEpisodeImporterModal: React.FC<BulkEpisodeImporterModalProps> =
           </div>
 
           <button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             disabled={loading}
             className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#00C2FF] to-[#0047FF] hover:brightness-110 text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 transition-all cursor-pointer disabled:opacity-50"
           >
             <Zap className="w-4 h-4" /> Bulk Create {epCount} Episodes Now
           </button>
-        </form>
+        </div>
       </div>
     </div>
   );

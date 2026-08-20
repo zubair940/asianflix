@@ -27,8 +27,7 @@ export const ReplaceVideoModal: React.FC<ReplaceVideoModalProps> = ({
 
   if (!isOpen || !episode) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
 
     let finalVideoUrl = videoUrl.trim();
 
@@ -95,7 +94,7 @@ export const ReplaceVideoModal: React.FC<ReplaceVideoModalProps> = ({
           <p className="text-slate-300 font-mono truncate">{episode.videoUrl}</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
           {/* Input Mode Selector */}
           <div className="flex rounded-xl bg-slate-950 p-1 border border-slate-800">
             <button
@@ -170,7 +169,8 @@ export const ReplaceVideoModal: React.FC<ReplaceVideoModalProps> = ({
               Cancel
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={loading}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#00C2FF] to-[#0047FF] hover:brightness-110 text-black text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-all cursor-pointer disabled:opacity-50"
             >
@@ -183,7 +183,7 @@ export const ReplaceVideoModal: React.FC<ReplaceVideoModalProps> = ({
               )}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

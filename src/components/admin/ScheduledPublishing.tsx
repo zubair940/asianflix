@@ -57,8 +57,7 @@ const ScheduledPublishing = memo(function ScheduledPublishing({
     localStorage.setItem('scheduled_episodes', JSON.stringify(newScheduled));
   };
 
-  const handleCreateSchedule = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateSchedule = async () => {
     if (!formDramaId || !formEpisodeId || !formDate || !formTime) {
       showToast('Please fill all fields', 'error');
       return;
@@ -157,7 +156,7 @@ const ScheduledPublishing = memo(function ScheduledPublishing({
 
       {/* Create Schedule Form */}
       {showCreate && (
-        <form onSubmit={handleCreateSchedule} className="space-y-4 p-4 rounded-xl bg-slate-950/50 border border-slate-800 animate-slide-down">
+        <div className="space-y-4 p-4 rounded-xl bg-slate-950/50 border border-slate-800 animate-slide-down">
           <h3 className="font-semibold text-white">Schedule Episode Publication</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
@@ -219,7 +218,8 @@ const ScheduledPublishing = memo(function ScheduledPublishing({
               Cancel
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleCreateSchedule}
               disabled={submitting}
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 text-white font-bold disabled:opacity-50 flex items-center gap-2"
             >
@@ -227,7 +227,7 @@ const ScheduledPublishing = memo(function ScheduledPublishing({
               Schedule
             </button>
           </div>
-        </form>
+        </div>
       )}
 
       {/* Pending Schedules */}
