@@ -5,8 +5,6 @@ import { DashboardStats, User } from '../types.js';
 // per-request body cap (~100MB), otherwise the tunnel kills the request
 // mid-upload ("progress 100% then Network error").
 const CHUNK_SIZE = 50 * 1024 * 1024; // 50 MB
-// Max concurrent chunk uploads to balance speed vs tunnel stability
-const MAX_CONCURRENT_CHUNKS = 3;
 
 function newUploadId(): string {
   try {
@@ -130,11 +128,7 @@ export const adminService = {
     }
     if (done > 0) console.log(`[uploadChunked] resuming chunked upload ${uploadId} from chunk ${done}`);
 
-    // Upload chunks with controlled concurrency and retry logic
-    const MAX_RETRIES = 3;
-    const RETRY_DELAY_MS = 1000;
-
-    async function uploadChunk(i: number): Promise<void> {
+    for (let i = done; i < total; i++) {
       const start = i * CHUNK_SIZE;
       const blob = file.slice(start, Math.min(start + CHUNK_SIZE, file.size));
       const formData = new FormData();
@@ -145,50 +139,16 @@ export const adminService = {
       formData.append('file', blob, file.name);
 
       const chunkProgress = (p: number) => onProgress && onProgress(Math.round(((i + p / 100) / total) * 100));
-
-      let lastError: Error | null = null;
-      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        try {
-          const res = await xhrUpload(`${base}/api/upload/chunk`, 'POST', formData, {}, chunkProgress);
-          if (res.ok) return;
-          lastError = new Error(res.json?.message || `Chunk ${i + 1}/${total} failed (${res.status})`);
-        } catch (err: any) {
-          lastError = err;
-        }
-        if (attempt < MAX_RETRIES) {
-          console.warn(`[uploadChunked] chunk ${i + 1}/${total} attempt ${attempt} failed, retrying in ${RETRY_DELAY_MS}ms...`);
-          await new Promise(r => setTimeout(r, RETRY_DELAY_MS * attempt));
-        }
+      let res: { ok: boolean; status: number; json: any };
+      try {
+        res = await xhrUpload(`${base}/api/upload/chunk`, 'POST', formData, {}, chunkProgress);
+      } catch {
+        res = await xhrUpload(`${base}/api/upload/chunk`, 'POST', formData, {}, chunkProgress);
       }
-      throw lastError || new Error(`Chunk ${i + 1}/${total} failed after ${MAX_RETRIES} retries`);
-    }
-
-    // Controlled concurrency queue
-    let nextIndex = done;
-    const running = new Set<Promise<void>>();
-
-    async function runQueue(): Promise<void> {
-      while (nextIndex < total) {
-        if (running.size >= MAX_CONCURRENT_CHUNKS) {
-          await Promise.race(running);
-          continue;
-        }
-        const i = nextIndex++;
-        const p = uploadChunk(i).then(() => {
-          running.delete(p);
-        }).catch((err) => {
-          running.delete(p);
-          throw err;
-        });
-        running.add(p);
-      }
-      // Wait for all remaining
-      if (running.size > 0) {
-        await Promise.all(running);
+      if (!res.ok) {
+        throw new Error(res.json?.message || `Chunk ${i + 1}/${total} failed (${res.status})`);
       }
     }
-
-    await runQueue();
 
     const completeRes = await xhrUpload(
       `${base}/api/upload/complete`,
