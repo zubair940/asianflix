@@ -30,11 +30,21 @@ function xhrUpload(
     xhr.open(method, url, true);
     // Don't set any headers for FormData - browser sets Content-Type with boundary automatically
     Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+
+    let lastProgress = 0;
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
-        onProgress(Math.round((e.loaded / e.total) * 100));
+        // Calculate progress
+        let percent = Math.round((e.loaded / e.total) * 100);
+        // Ensure progress never goes backward
+        percent = Math.max(lastProgress, percent);
+        // Cap at 100%
+        percent = Math.min(percent, 100);
+        lastProgress = percent;
+        onProgress(percent);
       }
     };
+
     xhr.onload = () => {
       let json: any = null;
       try {
@@ -43,8 +53,11 @@ function xhrUpload(
         json = { rawResponse: xhr.responseText };
       }
       console.log(`[xhrUpload] ${method} ${url} → ${xhr.status}`, json);
+      // Ensure 100% on complete
+      if (onProgress) onProgress(100);
       resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, json });
     };
+
     xhr.onerror = () => {
       console.error(`[xhrUpload] NETWORK ERROR: ${method} ${url}`);
       reject(new Error(`Network error during upload (status: ${xhr.status || 0}). Check CORS, tunnel, or network.`));
