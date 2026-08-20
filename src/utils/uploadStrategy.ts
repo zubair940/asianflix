@@ -179,6 +179,35 @@ async function uploadChunkedTunnel(
   const RETRY_DELAY_MS = 1000;
   const MAX_CONCURRENT_CHUNKS = 3;
 
+  // Track progress per chunk to ensure monotonic overall progress
+  const chunkProgressMap = new Map<number, number>();
+  let lastReportedProgress = -1;
+
+  function updateOverallProgress(chunkIndex: number, chunkPercent: number): void {
+    if (!onProgress) return;
+    chunkProgressMap.set(chunkIndex, chunkPercent);
+    
+    // Calculate overall progress: completed chunks (100%) + current chunk's partial progress
+    let completedChunks = 0;
+    let currentChunkProgress = 0;
+    for (const [idx, p] of chunkProgressMap.entries()) {
+      if (p >= 100) completedChunks++;
+      else if (idx === nextUploadingIndex) currentChunkProgress = p;
+    }
+    
+    // For chunks already completed (in existingIndexes), count them
+    let overallPercent = Math.round(((completedChunks + currentChunkProgress / 100) / total) * 100);
+    overallPercent = Math.min(100, overallPercent);
+    
+    // Only report forward progress
+    if (overallPercent > lastReportedProgress) {
+      lastReportedProgress = overallPercent;
+      onProgress(overallPercent);
+    }
+  }
+
+  let nextUploadingIndex = -1;
+
   async function uploadChunk(i: number): Promise<void> {
     const start = i * 50 * 1024 * 1024;
     const blob = file.slice(start, Math.min(start + 50 * 1024 * 1024, file.size));
@@ -189,13 +218,19 @@ async function uploadChunkedTunnel(
     if (mediaPath) formData.append('path', mediaPath);
     formData.append('file', blob, file.name);
 
-    const chunkProgress = (p: number) => onProgress && onProgress(Math.round(((i + p / 100) / total) * 100));
+    const chunkProgress = (p: number) => {
+      nextUploadingIndex = i;
+      updateOverallProgress(i, p);
+    };
 
     let lastError: Error | null = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const res = await xhrUpload(`${mediaServerUrl}/api/upload/chunk`, 'POST', formData, {}, chunkProgress);
-        if (res.ok) return;
+        if (res.ok) {
+          updateOverallProgress(i, 100);
+          return;
+        }
         lastError = new Error(res.json?.message || `Chunk ${i + 1}/${total} failed (${res.status})`);
       } catch (err: any) {
         lastError = err;
