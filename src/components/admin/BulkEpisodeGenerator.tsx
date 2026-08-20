@@ -379,6 +379,7 @@ const BulkEpisodeGenerator = memo(function BulkEpisodeGenerator({
                     disabled={busy && row.status === 'uploading'}
                     onChange={(e) => handleFilePicked(row.id, e.target.files?.[0] || null)}
                     className="hidden"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                   />
                 </label>
               )}
