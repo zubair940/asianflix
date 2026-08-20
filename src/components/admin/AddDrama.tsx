@@ -174,7 +174,7 @@ export const AddDrama: React.FC<AddDramaProps> = ({ onSuccess, onCancel }) => {
               />
               <label className="px-3 py-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl text-slate-200 cursor-pointer flex items-center gap-1 shrink-0">
                 <Upload className="w-3.5 h-3.5" /> File
-                <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'poster')} className="hidden" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} />
+                <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'poster')} className="hidden" onClick={(e) => { e.stopPropagation(); }} />
               </label>
             </div>
           </div>
@@ -191,7 +191,7 @@ export const AddDrama: React.FC<AddDramaProps> = ({ onSuccess, onCancel }) => {
               />
               <label className="px-3 py-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl text-slate-200 cursor-pointer flex items-center gap-1 shrink-0">
                 <Upload className="w-3.5 h-3.5" /> File
-                <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'backdrop')} className="hidden" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} />
+                <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'backdrop')} className="hidden" onClick={(e) => { e.stopPropagation(); }} />
               </label>
             </div>
           </div>

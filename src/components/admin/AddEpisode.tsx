@@ -251,7 +251,7 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
                   onChange={(e) => handleFileUpload(e, 'video')}
                   className="hidden"
                   disabled={uploading}
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onClick={(e) => { e.stopPropagation(); }}
                 />
               </label>
             </div>
@@ -301,7 +301,7 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
                     <Upload className="w-3 h-3" />
                   )}
                   {uploading && uploadField === 'sub' ? `${uploadProgress ?? 0}%` : 'SRT'}
-                  <input type="file" accept=".srt,.vtt" onChange={(e) => handleFileUpload(e, 'sub')} className="hidden" disabled={uploading} onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} />
+                  <input type="file" accept=".srt,.vtt" onChange={(e) => handleFileUpload(e, 'sub')} className="hidden" disabled={uploading} onClick={(e) => { e.stopPropagation(); }} />
                 </label>
               </div>
             </div>
@@ -329,7 +329,7 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
                     <Upload className="w-3.5 h-3.5" /> File
                   </>
                 )}
-                <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'thumb')} className="hidden" disabled={uploading} onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} />
+                <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'thumb')} className="hidden" disabled={uploading} onClick={(e) => { e.stopPropagation(); }} />
               </label>
             </div>
             <p className="text-[10px] text-slate-500">Recommended 16:9 aspect ratio, min 1280x720</p>

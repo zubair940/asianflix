@@ -229,7 +229,7 @@ export const EditEpisodeModal: React.FC<EditEpisodeModalProps> = ({
                   accept="video/mp4,video/webm"
                   onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
                   className="hidden"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onClick={(e) => { e.stopPropagation(); }}
                 />
               </label>
               {videoFile && (
