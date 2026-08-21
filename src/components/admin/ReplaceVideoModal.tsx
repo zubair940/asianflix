@@ -127,7 +127,7 @@ export const ReplaceVideoModal: React.FC<ReplaceVideoModalProps> = ({
                   accept="video/mp4,video/webm,video/mkv,video/*"
                   onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                  onClick={(e) => { e.stopPropagation(); }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                 />
                 <div className="space-y-2 pointer-events-none">
                   <Upload className="w-8 h-8 text-[#00C2FF] mx-auto group-hover:scale-110 transition-transform" />
