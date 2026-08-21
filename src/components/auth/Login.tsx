@@ -16,8 +16,7 @@ export const Login: React.FC = () => {
 
   const from = (location.state as any)?.from?.pathname || '/';
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!email || !password) {
       showToast('Please enter both email and password', 'error');
       return;
@@ -56,7 +55,7 @@ export const Login: React.FC = () => {
         </div>
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="p-6 rounded-2xl bg-slate-900 border border-slate-800/80 shadow-2xl space-y-4">
+        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800/80 shadow-2xl space-y-4">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-300">Email Address</label>
             <div className="relative">
@@ -88,20 +87,14 @@ export const Login: React.FC = () => {
           </div>
 
           <button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             disabled={loading}
             className="w-full py-3 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-600/30 disabled:opacity-50 transition-all mt-2 cursor-pointer"
           >
             {loading ? 'Signing in...' : 'Sign In'} <ArrowRight className="w-4 h-4" />
           </button>
-        </form>
-
-        <p className="text-center text-xs text-slate-400">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-rose-400 font-semibold hover:underline">
-            Register for Free
-          </Link>
-        </p>
+        </div>
       </div>
     </div>
   );

@@ -63,8 +63,7 @@ export const Navbar: React.FC = () => {
     }
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearchSubmit = () => {
     if (searchQuery.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
       setSearchQuery('');
@@ -104,7 +103,7 @@ export const Navbar: React.FC = () => {
           </div>
         </Link>
 
-        <form onSubmit={handleSearchSubmit} className="hidden lg:flex flex-1 max-w-xl relative" role="search">
+        <div className="hidden lg:flex flex-1 max-w-xl relative" role="search">
           <label htmlFor="global-search" className="sr-only">Search dramas</label>
           <input
             id="global-search"
@@ -116,7 +115,7 @@ export const Navbar: React.FC = () => {
             autoComplete="off"
           />
           <Search className="w-4.5 h-4.5 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
-        </form>
+        </div>
 
         <nav className="hidden lg:flex items-center gap-1" aria-label="Main navigation">
           {navLinks.map(({ path, label, icon: Icon }) => (
@@ -246,7 +245,7 @@ export const Navbar: React.FC = () => {
           role="navigation"
           aria-label="Mobile navigation"
         >
-          <form onSubmit={handleSearchSubmit} className="relative mb-3">
+          <div className="relative mb-3">
             <label htmlFor="mobile-search" className="sr-only">Search dramas</label>
             <input
               id="mobile-search"
@@ -258,7 +257,7 @@ export const Navbar: React.FC = () => {
               autoComplete="off"
             />
             <Search className="w-4.5 h-4.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
-          </form>
+          </div>
           <Link
             to="/"
             onClick={() => setMobileMenuOpen(false)}

@@ -26,8 +26,7 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({
   const [comment, setComment] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmitReview = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitReview = async () => {
     if (!user) {
       showToast('Please login to leave a review', 'info');
       return;
@@ -71,7 +70,7 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({
 
       {/* Review Submission Form */}
       {user ? (
-        <form onSubmit={handleSubmitReview} className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-300">Rate this Drama:</span>
             <RatingStars rating={userRating} editable size="lg" onRatingChange={setUserRating} />
@@ -87,14 +86,15 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({
 
           <div className="flex justify-end">
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmitReview}
               disabled={submitting}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-rose-600/30 disabled:opacity-50 transition-all"
             >
               <Send className="w-4 h-4" /> {submitting ? 'Posting...' : 'Post Review'}
             </button>
           </div>
-        </form>
+        </div>
       ) : (
         <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 text-center text-xs text-slate-400">
           Want to share your rating? Sign in to submit a review.

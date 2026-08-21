@@ -15,8 +15,7 @@ export const Register: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (password !== confirmPassword) {
       showToast('Passwords do not match', 'error');
       return;
@@ -48,7 +47,7 @@ export const Register: React.FC = () => {
           <p className="text-xs text-slate-400">Join thousands of K-Drama lovers watching HD series & movies.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 rounded-2xl bg-slate-900 border border-slate-800/80 shadow-2xl space-y-4">
+        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800/80 shadow-2xl space-y-4">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-300">Full Name</label>
             <div className="relative">
@@ -117,13 +116,14 @@ export const Register: React.FC = () => {
           </div>
 
           <button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             disabled={loading}
             className="w-full py-3 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-600/30 disabled:opacity-50 transition-all mt-2"
           >
             {loading ? 'Creating Account...' : 'Create Account'} <ArrowRight className="w-4 h-4" />
           </button>
-        </form>
+        </div>
 
         <p className="text-center text-xs text-slate-400">
           Already have an account?{' '}

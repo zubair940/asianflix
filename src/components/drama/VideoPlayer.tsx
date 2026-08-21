@@ -293,8 +293,7 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
     }
   };
 
-  const handleSendDanmaku = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendDanmaku = async () => {
     if (!danmakuText.trim()) return;
 
     const text = danmakuText.trim();
@@ -670,7 +669,7 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
           </div>
         </div>
 
-        <form onSubmit={handleSendDanmaku} className="w-full sm:w-auto flex-1 flex gap-2">
+        <div className="w-full sm:w-auto flex-1 flex gap-2">
           <input
             type="text"
             placeholder="Send live comment floating across video..."
@@ -679,13 +678,14 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({
             className="flex-1 px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00C2FF]"
           />
           <button
-            type="submit"
+            type="button"
+            onClick={handleSendDanmaku}
             disabled={!danmakuText.trim()}
             className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#00C2FF] to-[#0047FF] hover:brightness-110 text-black font-extrabold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             <Send className="w-3.5 h-3.5" /> Send
           </button>
-        </form>
+        </div>
       </div>
 
       {/* Modals & Drawers */}
