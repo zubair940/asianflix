@@ -45,8 +45,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ defaultTab = 'watchlis
     }
   };
 
-  const handleUpdateName = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleUpdateName = async () => {
     if (!newName.trim()) return;
     try {
       const res = await authService.updateProfile(newName.trim());
@@ -75,17 +74,17 @@ export const UserProfile: React.FC<UserProfileProps> = ({ defaultTab = 'watchlis
             />
             <div className="space-y-1">
               {isEditingName ? (
-                <form onSubmit={handleUpdateName} className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     className="bg-slate-950 border border-rose-500 rounded-lg px-3 py-1 text-sm text-white font-bold outline-none"
                   />
-                  <button type="submit" className="p-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-500">
+                  <button type="button" onClick={handleUpdateName} className="p-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-500">
                     <Check className="w-4 h-4" />
                   </button>
-                </form>
+                </div>
               ) : (
                 <div className="flex items-center gap-2 justify-center sm:justify-start">
                   <h1 className="text-2xl font-bold text-white">{user.name}</h1>

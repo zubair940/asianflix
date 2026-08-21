@@ -64,8 +64,7 @@ export const WatchPartyDrawer: React.FC<WatchPartyDrawerProps> = ({
     }
   };
 
-  const handleJoinRoom = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleJoinRoom = async () => {
     if (!joinCodeInput.trim()) return;
     setLoading(true);
     try {
@@ -79,8 +78,7 @@ export const WatchPartyDrawer: React.FC<WatchPartyDrawerProps> = ({
     }
   };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendMessage = async () => {
     if (!room || !msgInput.trim()) return;
 
     const txt = msgInput.trim();
@@ -164,7 +162,7 @@ export const WatchPartyDrawer: React.FC<WatchPartyDrawerProps> = ({
             </span>
           </div>
 
-          <form onSubmit={handleJoinRoom} className="space-y-3">
+          <div className="space-y-3">
             <input
               type="text"
               placeholder="Enter 6-character Code (e.g. X7K9P2)"
@@ -174,13 +172,14 @@ export const WatchPartyDrawer: React.FC<WatchPartyDrawerProps> = ({
               className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 font-mono text-center tracking-widest text-sm focus:outline-none focus:border-[#00C2FF]"
             />
             <button
-              type="submit"
+              type="button"
+              onClick={handleJoinRoom}
               disabled={loading || !joinCodeInput.trim()}
               className="w-full py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs disabled:opacity-50 transition-colors cursor-pointer"
             >
               Join Party Room
             </button>
-          </form>
+          </div>
         </div>
       ) : (
         /* Active Room Chat & Controls View */
@@ -246,7 +245,7 @@ export const WatchPartyDrawer: React.FC<WatchPartyDrawerProps> = ({
           </div>
 
           {/* Message Input Box */}
-          <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-800 bg-slate-950 flex gap-2">
+          <div className="p-3 border-t border-slate-800 bg-slate-950 flex gap-2">
             <input
               type="text"
               placeholder="Chat with watch party..."
@@ -255,13 +254,14 @@ export const WatchPartyDrawer: React.FC<WatchPartyDrawerProps> = ({
               className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00C2FF]"
             />
             <button
-              type="submit"
+              type="button"
+              onClick={handleSendMessage}
               disabled={!msgInput.trim()}
               className="p-2 rounded-xl bg-[#00C2FF] text-black font-bold disabled:opacity-50 hover:brightness-110 transition-all cursor-pointer shrink-0"
             >
               <Send className="w-4 h-4" />
             </button>
-          </form>
+          </div>
         </div>
       )}
     </div>
