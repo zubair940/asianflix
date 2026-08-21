@@ -260,7 +260,7 @@ const BulkEpisodeGenerator = memo(function BulkEpisodeGenerator({
             One drama per episode row — exactly {rows.length} {rows.length === 1 ? 'drama' : 'dramas'} can be selected. Episode numbers auto-assign by order or from file names (ep1.mp4 → Episode 1).
           </p>
         </div>
-        <button onClick={onCancel} disabled={busy} className="p-1 rounded-lg text-slate-400 hover:text-white disabled:opacity-50">
+        <button type="button" onClick={onCancel} disabled={busy} className="p-1 rounded-lg text-slate-400 hover:text-white disabled:opacity-50">
           <X className="w-5 h-5" />
         </button>
       </div>

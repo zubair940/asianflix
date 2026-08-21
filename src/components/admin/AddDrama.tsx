@@ -89,7 +89,7 @@ export const AddDrama: React.FC<AddDramaProps> = ({ onSuccess, onCancel }) => {
         <h2 className="text-lg font-bold text-white flex items-center gap-2">
           <Plus className="w-5 h-5 text-rose-500" /> Upload / Add New Asian Drama
         </h2>
-        <button onClick={onCancel} className="p-1 rounded-lg text-slate-400 hover:text-white">
+        <button type="button" onClick={onCancel} className="p-1 rounded-lg text-slate-400 hover:text-white">
           <X className="w-5 h-5" />
         </button>
       </div>

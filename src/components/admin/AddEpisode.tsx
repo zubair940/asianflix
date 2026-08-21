@@ -132,7 +132,7 @@ export const AddEpisode: React.FC<AddEpisodeProps> = ({
           >
             <Sparkles className="w-3.5 h-3.5" /> Bulk Create
           </button>
-          <button onClick={onCancel} className="p-1 rounded-lg text-slate-400 hover:text-white">
+          <button type="button" onClick={onCancel} className="p-1 rounded-lg text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>

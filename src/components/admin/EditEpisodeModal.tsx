@@ -130,6 +130,7 @@ export const EditEpisodeModal: React.FC<EditEpisodeModalProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onCancel}
             className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >

@@ -167,13 +167,13 @@ const AdminActivityLog = memo(function AdminActivityLog({ onClose }: AdminActivi
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={exportLogs} className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5">
+          <button type="button" onClick={exportLogs} className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5">
             <Download className="w-3.5 h-3.5" /> Export CSV
           </button>
-          <button onClick={clearLogs} className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-xs font-semibold flex items-center gap-1.5">
+          <button type="button" onClick={clearLogs} className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-xs font-semibold flex items-center gap-1.5">
             <Trash2 className="w-3.5 h-3.5" /> Clear All
           </button>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">
+          <button type="button" onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
